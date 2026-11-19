@@ -13,10 +13,9 @@ const CHARACTERS = {
 // House Rules Configuration
 const HOUSE_RULES_DEFAULTS = {
     mustCoupAt10: false,        // Obrigatório dar Golpe com 10+ moedas
-    noBluffFirstRound: false,   // Primeira rodada sem blefe
+    noBluffFirstRound: true,    // Primeira rodada sem blefe (padrão)
     revealAllOnDeath: false,    // Eliminado revela todas as cartas
     assassinCosts2: false,      // Assassino custa 2 moedas
-    dukeTax3: false,            // Duque pega 3 moedas na Ajuda Externa
     twoPlayerVariant: false     // 3 cartas cada (2 jogadores)
 };
 
@@ -24,14 +23,13 @@ function getActionCost(action, houseRules, player) {
     const baseCost = ACTION_COSTS[action] || 0;
     
     if (houseRules.assassinCosts2 && action === ACTIONS.ASSASSINATE) return 2;
-    if (houseRules.dukeTax3 && action === ACTIONS.FOREIGN_AID) return 0; // Ganha 3 no processamento
     if (houseRules.mustCoupAt10 && action === ACTIONS.COUP && player.coins >= 10) return 7; // Ainda 7, mas obrigatório
     
     return baseCost;
 }
 
 function getForeignAidAmount(houseRules) {
-    return houseRules.dukeTax3 ? 3 : 2;
+    return 2;
 }
 
 // Variante 2 jogadores automática: 3 cartas cada
@@ -305,7 +303,7 @@ function processExchange(gameState, playerId) {
 function processBlock(gameState, blockerId, claimedCharacter) {
     const blocker = gameState.players[blockerId];
     const action = gameState.pendingAction;
-    const actor = gameState.players[action.playerId];
+    if (gameState.phase !== 'challenge_block' || !blockOptions(gameState, blockerId).includes(claimedCharacter)) return false;
     
     addLog(gameState, 'challenge', `${blocker.name} bloqueou com <span class="log-action">${CHARACTER_LABELS[claimedCharacter]}</span>`);
     
@@ -315,6 +313,7 @@ function processBlock(gameState, blockerId, claimedCharacter) {
         actionType: action.type
     };
     openResponseWindow(gameState, 'challenge_block_response');
+    return true;
 }
 
 // Abre janela de resposta com prazo; respostas "Permitir" ficam em passes
@@ -324,16 +323,26 @@ function openResponseWindow(gameState, phase) {
     gameState.deadline = nowMs() + RESPONSE_MS;
 }
 
-// Quem precisa responder na fase atual
-// ponytail: só o autor da ação contesta um bloqueio; regra oficial permite qualquer um.
+// Quem precisa responder na fase atual (regra oficial)
+// - Ação: todos os vivos exceto o autor (contestar e/ou bloquear)
+// - Ação já contestada sem sucesso: só quem ainda pode bloquear
+// - Bloqueio: todos os vivos exceto quem bloqueou podem contestá-lo
 function getResponders(gameState) {
     const action = gameState.pendingAction;
     if (!action) return [];
-    if (gameState.phase === 'challenge_block_response') return [action.playerId];
+    const alive = Object.values(gameState.players).filter(p => p.alive);
+    if (gameState.phase === 'challenge_block_response') {
+        return alive.filter(p => p.id !== gameState.pendingBlock?.blockerId).map(p => p.id);
+    }
     if (gameState.phase !== 'challenge_block') return [];
-    return Object.values(gameState.players)
-        .filter(p => p.alive && p.id !== action.playerId)
-        .map(p => p.id);
+    if (action.challenged) return alive.filter(p => blockOptions(gameState, p.id).length).map(p => p.id);
+    return alive.filter(p => p.id !== action.playerId).map(p => p.id);
+}
+
+// Ação ainda pode ser contestada? (cada ação é contestada uma única vez)
+function canChallengeAction(gameState, playerId) {
+    const action = gameState.pendingAction;
+    return !!action && !!action.claimedCharacter && !action.challenged && action.playerId !== playerId;
 }
 
 // Ação/bloqueio aceitos sem contestação
@@ -366,8 +375,21 @@ function processPass(gameState, playerId) {
 // Quem pode bloquear: Ajuda Externa = qualquer um; Roubo/Assassinato = só o alvo
 function canDeclareBlock(gameState, playerId) {
     const action = gameState.pendingAction;
-    if (!action || !isBlockable(action.type) || action.playerId === playerId) return false;
+    const player = gameState.players[playerId];
+    if (!action || !player?.alive || !isBlockable(action.type) || action.playerId === playerId || action.blocked) return false;
     return action.type === ACTIONS.FOREIGN_AID || action.targetId === playerId;
+}
+
+// Cartas com que o jogador pode bloquear. Sem blefe na 1ª rodada: só cartas que possui.
+function blockOptions(gameState, playerId) {
+    if (!canDeclareBlock(gameState, playerId)) return [];
+    const player = gameState.players[playerId];
+    const chars = getBlockers(gameState.pendingAction.type);
+    return isBluffAllowed(gameState) ? chars : chars.filter(c => hasCharacter(player, c));
+}
+
+function isBluffAllowed(gameState) {
+    return !gameState.houseRules?.noBluffFirstRound || (gameState.round || 1) > 1;
 }
 
 // Prazo expirado: silêncio = permitir
@@ -382,6 +404,13 @@ function checkTimeout(gameState, now = nowMs()) {
 // Processa contestação
 function processChallenge(gameState, challengerId) {
     const challenger = gameState.players[challengerId];
+    // Validação: só durante janela de resposta, por jogador vivo, contra alegação de carta
+    if (!challenger?.alive) return false;
+    if (gameState.phase === 'challenge_block_response') {
+        if (gameState.pendingBlock?.blockerId === challengerId) return false;
+    } else if (gameState.phase !== 'challenge_block' || !canChallengeAction(gameState, challengerId)) {
+        return false;
+    }
     
     if (gameState.pendingBlock) {
         // Contestar bloqueio
@@ -413,6 +442,7 @@ function processChallenge(gameState, challengerId) {
     
     gameState.deadline = null;
     gameState.phase = 'resolve_challenge';
+    return true;
 }
 
 // Resolve contestação
@@ -453,6 +483,8 @@ function resolveChallenge(gameState) {
     }
     
     if (!actionProceeds) gameState.pendingAction = null;
+    else if (challenge.isBlockChallenge) gameState.pendingAction.blocked = true; // bloqueio caiu: sem novo bloqueio
+    else gameState.pendingAction.challenged = true; // ação provada: ainda pode ser bloqueada
     gameState.challengeWonByActor = actionProceeds;
     gameState.pendingChallenge = null;
     gameState.pendingBlock = null;
@@ -469,7 +501,7 @@ function applyPendingAction(gameState) {
 
     switch (action.type) {
         case ACTIONS.FOREIGN_AID: {
-            const amount = hr.dukeTax3 ? 3 : 2;
+            const amount = 2;
             actor.coins += amount;
             addLog(gameState, 'result', `${actor.name} recebeu <span class="log-action">Ajuda Externa</span> (+${amount})`);
             gameState.pendingAction = null;
@@ -571,7 +603,11 @@ function processLoseInfluence(gameState, playerId, revealedChar) {
     // Se o ator venceu a contestação, a ação original ainda precisa ser aplicada
     if (gameState.challengeWonByActor && gameState.pendingAction) {
         gameState.challengeWonByActor = false;
-        applyPendingAction(gameState);
+        // Regra oficial: após contestação fracassada, o alvo ainda pode bloquear
+        // Bloqueio desmascarado: ação segue direto
+        if (gameState.pendingAction.blocked) { applyPendingAction(gameState); return; }
+        openResponseWindow(gameState, 'challenge_block');
+        if (!getResponders(gameState).length) applyPendingAction(gameState);
         return;
     }
     gameState.challengeWonByActor = false;
@@ -664,7 +700,6 @@ function getAvailableActions(player, gameState) {
     const actions = [];
     
     const assassinCost = hr.assassinCosts2 ? 2 : 3;
-    const foreignAidAmount = hr.dukeTax3 ? 3 : 2;
     // Regra oficial: começar o turno com 10+ moedas obriga o Golpe
     const mustCoupNow = player.coins >= 10;
     const allowBluff = !hr.noBluffFirstRound || round > 1;
@@ -781,6 +816,8 @@ const GameLogic = {
     allPassed,
     resolveUncontested,
     canDeclareBlock,
+    canChallengeAction,
+    blockOptions,
     checkTimeout,
     getResponders,
     normalizeState,

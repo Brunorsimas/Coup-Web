@@ -172,6 +172,47 @@ t('House rule: sem blefe na 1ª rodada', () => {
     assert.strictEqual(a.tax, false); assert.strictEqual(a.steal, false);
     assert.strictEqual(a.assassinate, true); assert.strictEqual(a.exchange, true);
 });
+t('Padrão: sem blefe na 1ª rodada', () => assert.strictEqual(G.HOUSE_RULES_DEFAULTS?.noBluffFirstRound ?? true, true));
+t('1ª rodada sem blefe: bloqueio só com carta real', () => {
+    const s = mk(['captain', 'duke'], ['captain', 'countess'], 2, 5);
+    s.houseRules = { noBluffFirstRound: true };
+    G.processSteal(s, 'p1', 'p2');
+    assert.deepStrictEqual(G.blockOptions(s, 'p2'), ['captain']);
+    assert.strictEqual(G.processBlock(s, 'p2', 'ambassador'), false);
+    s.round = 2;
+    assert.deepStrictEqual(G.blockOptions(s, 'p2'), ['captain', 'ambassador']);
+});
+t('Contestar: inválido fora da janela, contra Ajuda Externa, por si mesmo ou morto', () => {
+    const s = mk(['duke', 'captain'], ['assassin', 'countess'], 2, 2,
+        { p3: { id: 'p3', name: 'C', coins: 2, influences: [], alive: false, order: 2 } });
+    assert.strictEqual(G.processChallenge(s, 'p2'), false, 'fase action');
+    G.processForeignAid(s, 'p1');
+    assert.strictEqual(G.processChallenge(s, 'p2'), false, 'ajuda externa');
+    s.phase = 'action'; G.processTax(s, 'p1');
+    assert.strictEqual(G.processChallenge(s, 'p1'), false, 'autor');
+    assert.strictEqual(G.processChallenge(s, 'p3'), false, 'morto');
+    assert.strictEqual(G.processChallenge(s, 'p2'), true);
+});
+t('Contestação fracassada: alvo ainda pode bloquear (Assassinato + Condessa)', () => {
+    const s = mk(['assassin', 'duke'], ['captain', 'countess', 'duke'], 3);
+    G.processAssassinate(s, 'p1', 'p2'); G.processChallenge(s, 'p2'); G.resolveChallenge(s);
+    G.processLoseInfluence(s, 'p2', 'captain');
+    assert.strictEqual(s.phase, 'challenge_block');
+    assert.deepStrictEqual(G.getResponders(s), ['p2']);
+    assert.strictEqual(G.canChallengeAction(s, 'p2'), false, 'não contesta 2x');
+    G.processBlock(s, 'p2', 'countess'); allPass(s);
+    assert.strictEqual(s.players.p2.influences.length, 2); assert.strictEqual(s.currentTurn, 'p2');
+});
+t('Qualquer jogador pode contestar um bloqueio', () => {
+    const s = mk(['duke', 'captain'], ['assassin', 'countess'], 2, 2,
+        { p3: { id: 'p3', name: 'C', coins: 2, influences: ['duke', 'captain'], alive: true, order: 2 } });
+    G.processForeignAid(s, 'p1'); G.processBlock(s, 'p2', 'duke');
+    assert.deepStrictEqual(G.getResponders(s).sort(), ['p1', 'p3']);
+    assert.strictEqual(G.processChallenge(s, 'p3'), true); G.resolveChallenge(s);
+    assert.strictEqual(s.pendingLoss.playerId, 'p2');
+    G.processLoseInfluence(s, 'p2', 'assassin');
+    assert.strictEqual(s.players.p1.coins, 4);
+});
 t('Turno pula eliminado', () => {
     const s = mk(['duke'], ['assassin'], 2, 2,
         { p3: { id: 'p3', name: 'C', coins: 2, influences: ['duke'], alive: true, order: 2 } });
@@ -193,7 +234,7 @@ t('Fuzz: 300 partidas aleatórias terminam e conservam 15 cartas', () => {
             players['p' + i] = { id: 'p' + i, name: 'P' + i, coins: 2, influences: drawn, alive: true, order: i };
         }
         const s = G.normalizeState({ currentTurn: 'p0', players, deck, phase: 'action', round: 1,
-            houseRules: g % 2 ? { assassinCosts2: true, dukeTax3: true } : {} });
+            houseRules: g % 2 ? { assassinCosts2: true } : {} });
         let steps = 0;
         while (s.phase !== 'finished') {
             if (++steps > 5000) throw new Error('não terminou');

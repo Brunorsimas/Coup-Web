@@ -59,7 +59,7 @@ function setupEventListeners() {
     setInterval(tickResponseTimer, 1000);
     
     // Ação cancelar
-    document.getElementById('btn-cancel-action').addEventListener('click', cancelAction);
+    document.getElementById('btn-challenge-action').addEventListener('click', respondChallenge);
 }
 
 // Room Manager Listeners
@@ -458,6 +458,11 @@ function createCardElement(character, index, revealed) {
 }
 
 function updateActionsPanel(room) {
+    // Botão Contestar: aparece para quem pode contestar a ação em andamento
+    const gs = room.gameState, me = RoomManager.getCurrentPlayerId();
+    document.getElementById('btn-challenge-action').classList.toggle('hidden',
+        !(gs?.phase === 'challenge_block' && !gs.passes?.[me] && GameLogic.canChallengeAction(gs, me) && myPlayerData?.alive));
+
     const panel = document.getElementById('actions-panel');
     const grid = document.getElementById('actions-grid');
     
@@ -553,14 +558,6 @@ function selectTarget(playerId) {
     selectedAction = null;
     highlightValidTargets(false);
     updateOpponents(roomData);
-}
-
-function cancelAction() {
-    selectedAction = null;
-    selectedTarget = null;
-    highlightValidTargets(false);
-    updateOpponents(roomData);
-    updateActionsPanel(roomData);
 }
 
 function highlightValidTargets(highlight) {
@@ -816,10 +813,10 @@ function showChallengeModal(action) {
     const label = GameLogic.ACTION_LABELS[action.type];
 
     const buttons = [];
-    if (action.claimedCharacter) buttons.push({ label: 'Contestar', cls: 'btn-danger', fn: respondChallenge });
-    if (GameLogic.canDeclareBlock(gameState, me)) {
-        // Bloquear é declaração: pode blefar com qualquer carta bloqueadora
-        GameLogic.getBlockers(action.type).forEach(ch => buttons.push({
+    if (GameLogic.canChallengeAction(gameState, me)) buttons.push({ label: 'Contestar', cls: 'btn-danger', fn: respondChallenge });
+    {
+        // Bloqueio é declaração: blefe permitido exceto na 1ª rodada (house rule)
+        GameLogic.blockOptions(gameState, me).forEach(ch => buttons.push({
             label: `Bloquear (${GameLogic.CHARACTER_LABELS[ch]})`, cls: 'btn-secondary', fn: () => respondBlock(ch)
         }));
     }
@@ -941,7 +938,6 @@ function formatHouseRuleName(key) {
         noBluffFirstRound: 'SemBlefe1ª',
         revealAllOnDeath: 'RevelaMorte',
         assassinCosts2: 'Assassino2💰',
-        dukeTax3: 'Duque3💰',
         twoPlayerVariant: '2Jog=3Cartas'
     };
     return names[key] || key;

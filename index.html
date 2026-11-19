@@ -47,9 +47,9 @@
                             <legend>⚙️ Regras da Casa (Opcionais)</legend>
                             <div class="house-rules-grid">
                                 <label class="house-rule-item">
-                                    <input type="checkbox" name="houseRule" value="noBluffFirstRound">
+                                    <input type="checkbox" name="houseRule" value="noBluffFirstRound" checked>
                                     <span class="hr-label">Sem Blefe 1ª Rodada</span>
-                                    <span class="hr-desc">Primeira rodada apenas ações reais</span>
+                                    <span class="hr-desc">Primeira rodada: ações e bloqueios só com cartas reais (padrão)</span>
                                 </label>
                                 <label class="house-rule-item">
                                     <input type="checkbox" name="houseRule" value="revealAllOnDeath">
@@ -60,11 +60,6 @@
                                     <input type="checkbox" name="houseRule" value="assassinCosts2">
                                     <span class="hr-label">Assassino = 2💰</span>
                                     <span class="hr-desc">Custa 2 moedas (mais agressivo)</span>
-                                </label>
-                                <label class="house-rule-item">
-                                    <input type="checkbox" name="houseRule" value="dukeTax3">
-                                    <span class="hr-label">Duque = 3💰</span>
-                                    <span class="hr-desc">Ajuda Externa dá 3 moedas</span>
                                 </label>
                             </div>
                             <button type="button" id="btn-toggle-all-rules" class="btn btn-secondary btn-small">Selecionar Todas</button>
@@ -133,8 +128,10 @@
                 <div id="actions-panel" class="actions-panel hidden">
                     <h3>Escolha sua Ação</h3>
                     <div class="actions-grid" id="actions-grid"></div>
-                    <button id="btn-cancel-action" class="btn btn-secondary">Cancelar</button>
                 </div>
+
+                <!-- Contestar ação de outro jogador (visível só quando é possível) -->
+                <button id="btn-challenge-action" class="btn btn-danger btn-large hidden">⚔️ Contestar</button>
 
                 <!-- Log do Jogo -->
                 <div id="game-log" class="game-log">
@@ -255,7 +252,6 @@
                         <li><strong>Sem Blefe 1ª Rodada:</strong> Primeira rodada apenas ações com cartas reais</li>
                         <li><strong>Revelar Todas na Morte:</strong> Eliminado mostra todas as cartas restantes</li>
                         <li><strong>Assassino = 2💰:</strong> Assassinato custa 2 moedas (mais agressivo)</li>
-                        <li><strong>Duque = 3💰:</strong> Ajuda Externa do Duque dá 3 moedas</li>
                     </ul>
                     <p style="margin-top: 0.5rem; font-size: 0.85rem; color: var(--text-muted);">Configuráveis ao criar a sala.</p>
                 </section>
