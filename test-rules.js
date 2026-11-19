@@ -222,11 +222,62 @@ t('Turno pula eliminado', () => {
 });
 
 // Fuzz: partidas aleatórias completas; conservação das 15 cartas e término
-t('Fuzz: 300 partidas aleatórias terminam e conservam 15 cartas', () => {
+t('Inquisidor: baralho 18, Troca 1, bloqueia Roubo, só se ativado', () => {
+    assert.strictEqual(G.createDeck().length, 15);
+    assert.strictEqual(G.createDeck({ withInquisitor: true }).length, 18);
+    const s = mk(['inquisitor', 'duke'], ['captain', 'inquisitor'], 2, 5);
+    assert.ok(!G.getAvailableActions(s.players.p1, s).some(a => a.id === 'examine'));
+    G.processSteal(s, 'p1', 'p2');
+    assert.ok(!G.blockOptions(s, 'p2').includes('inquisitor'), 'sem opção, sem Inquisidor');
+    s.houseRules = { withInquisitor: true };
+    assert.ok(G.blockOptions(s, 'p2').includes('inquisitor'));
+    s.phase = 'action'; s.pendingAction = null;
+    G.processInqExchange(s, 'p1'); allPass(s);
+    assert.strictEqual(s.phase, 'exchange'); assert.strictEqual(s.exchangeOffer.length, 1);
+});
+t('Inquisidor: bloqueio blefado contestado por terceiro', () => {
+    const s = mk(['captain', 'duke'], ['duke', 'countess'], 2, 4,
+        { p3: { id: 'p3', name: 'C', coins: 2, influences: ['duke', 'captain'], alive: true, order: 2 } });
+    s.houseRules = { withInquisitor: true }; s.round = 2;
+    G.processSteal(s, 'p1', 'p2'); assert.ok(G.processBlock(s, 'p2', 'inquisitor'));
+    assert.ok(G.processChallenge(s, 'p3')); G.resolveChallenge(s);
+    G.processLoseInfluence(s, 'p2', 'duke');
+    assert.strictEqual(s.players.p1.coins, 4); assert.strictEqual(s.players.p2.coins, 2);
+});
+t('Investigar: alvo mostra, Inquisidor força troca', () => {
+    const s = mk(['inquisitor', 'duke'], ['captain', 'countess'], 2, 2);
+    s.houseRules = { withInquisitor: true };
+    G.processExamine(s, 'p1', 'p2'); allPass(s);
+    assert.strictEqual(s.phase, 'examine_show');
+    assert.strictEqual(G.processExamineShow(s, 'p1', 'duke'), false, 'só o alvo');
+    assert.ok(G.processExamineShow(s, 'p2', 'captain'));
+    assert.strictEqual(G.processExamineDecide(s, 'p2', true), false, 'só o Inquisidor');
+    const before = s.deck.length;
+    assert.ok(G.processExamineDecide(s, 'p1', true));
+    assert.strictEqual(s.players.p2.influences.length, 2); assert.strictEqual(s.deck.length, before);
+    assert.strictEqual(s.currentTurn, 'p2');
+});
+t('Assassino blefando desmascarado recebe moedas de volta', () => {
+    const s = mk(['duke', 'captain'], ['countess', 'duke'], 3, 2);
+    s.round = 2;
+    G.processAssassinate(s, 'p1', 'p2'); assert.strictEqual(s.players.p1.coins, 0);
+    G.processChallenge(s, 'p2'); G.resolveChallenge(s);
+    assert.strictEqual(s.players.p1.coins, 3);
+    G.processLoseInfluence(s, 'p1', 'duke');
+    assert.strictEqual(s.players.p2.influences.length, 2); assert.strictEqual(s.currentTurn, 'p2');
+});
+t('Assassino verdadeiro bloqueado pela Condessa: moedas gastas', () => {
+    const s = mk(['assassin', 'captain'], ['countess', 'duke'], 3, 2);
+    G.processAssassinate(s, 'p1', 'p2'); G.processBlock(s, 'p2', 'countess'); allPass(s);
+    assert.strictEqual(s.players.p1.coins, 0);
+});
+t('Fuzz: 300 partidas aleatórias terminam e conservam cartas e moedas', () => {
     const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
     for (let g = 0; g < 300; g++) {
         const n = 2 + (g % 5);
-        let deck = G.createDeck();
+        const houseRules = { assassinCosts2: g % 2 === 1, withInquisitor: g % 3 === 0, noBluffFirstRound: g % 4 === 0 };
+        const totalCards = houseRules.withInquisitor ? 18 : 15;
+        let deck = G.createDeck(houseRules);
         const players = {};
         for (let i = 0; i < n; i++) {
             const { drawn, remaining } = G.drawCards(deck, G.getInitialCardsPerPlayer(n, {}));
@@ -234,7 +285,7 @@ t('Fuzz: 300 partidas aleatórias terminam e conservam 15 cartas', () => {
             players['p' + i] = { id: 'p' + i, name: 'P' + i, coins: 2, influences: drawn, alive: true, order: i };
         }
         const s = G.normalizeState({ currentTurn: 'p0', players, deck, phase: 'action', round: 1,
-            houseRules: g % 2 ? { assassinCosts2: true } : {} });
+            houseRules });
         let steps = 0;
         while (s.phase !== 'finished') {
             if (++steps > 5000) throw new Error('não terminou');
@@ -245,15 +296,22 @@ t('Fuzz: 300 partidas aleatórias terminam e conservam 15 cartas', () => {
                 ({ income: () => G.processIncome(s, me.id), foreign_aid: () => G.processForeignAid(s, me.id),
                    tax: () => G.processTax(s, me.id), coup: () => G.processCoup(s, me.id, tgt),
                    assassinate: () => G.processAssassinate(s, me.id, tgt), steal: () => G.processSteal(s, me.id, tgt),
-                   exchange: () => G.processExchange(s, me.id) })[act.id]();
+                   exchange: () => G.processExchange(s, me.id), inq_exchange: () => G.processInqExchange(s, me.id),
+                   examine: () => G.processExamine(s, me.id, tgt) })[act.id]();
             } else if (s.phase === 'challenge_block') {
                 const r = Math.random(), who = pick(G.getResponders(s));
-                if (r < 0.2 && s.pendingAction.claimedCharacter) G.processChallenge(s, who);
-                else if (r < 0.4 && G.canDeclareBlock(s, who)) G.processBlock(s, who, pick(G.getBlockers(s.pendingAction.type)));
+                const opts = G.blockOptions(s, who);
+                if (r < 0.2 && G.canChallengeAction(s, who)) assert.ok(G.processChallenge(s, who));
+                else if (r < 0.4 && opts.length) assert.ok(G.processBlock(s, who, pick(opts)));
                 else G.checkTimeout(s, Date.now() + G.RESPONSE_MS + 1);
             } else if (s.phase === 'challenge_block_response') {
-                if (Math.random() < 0.4) G.processChallenge(s, s.currentTurn);
-                else G.processPass(s, s.currentTurn);
+                if (Math.random() < 0.4) assert.ok(G.processChallenge(s, pick(G.getResponders(s))));
+                else G.checkTimeout(s, Date.now() + G.RESPONSE_MS + 1);
+            } else if (s.phase === 'examine_show') {
+                const t2 = s.players[s.pendingAction.targetId];
+                assert.ok(G.processExamineShow(s, t2.id, pick(t2.influences)));
+            } else if (s.phase === 'examine_decide') {
+                assert.ok(G.processExamineDecide(s, me.id, Math.random() < 0.5));
             } else if (s.phase === 'resolve_challenge') {
                 G.resolveChallenge(s);
             } else if (s.phase === 'lose_influence') {
@@ -266,7 +324,7 @@ t('Fuzz: 300 partidas aleatórias terminam e conservam 15 cartas', () => {
 
             const total = s.deck.length + (s.exchangeOffer || []).length +
                 Object.values(s.players).reduce((a, p) => a + p.influences.length + p.lost.length, 0);
-            if (total !== 15) throw new Error(`cartas=${total} fase=${s.phase} jogo ${g}`);
+            if (total !== totalCards) throw new Error(`cartas=${total} fase=${s.phase} jogo ${g}`);
             Object.values(s.players).forEach(p => {
                 if (p.coins < 0) throw new Error('moedas negativas');
                 if (p.alive !== p.influences.length > 0) throw new Error('alive inconsistente');

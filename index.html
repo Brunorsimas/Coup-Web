@@ -61,6 +61,11 @@
                                     <span class="hr-label">Assassino = 2💰</span>
                                     <span class="hr-desc">Custa 2 moedas (mais agressivo)</span>
                                 </label>
+                                <label class="house-rule-item">
+                                    <input type="checkbox" name="houseRule" value="withInquisitor">
+                                    <span class="hr-label">Com Inquisidor</span>
+                                    <span class="hr-desc">Adiciona o Inquisidor (junto com o Embaixador)</span>
+                                </label>
                             </div>
                             <button type="button" id="btn-toggle-all-rules" class="btn btn-secondary btn-small">Selecionar Todas</button>
                         </fieldset>
@@ -128,6 +133,7 @@
                 <div id="actions-panel" class="actions-panel hidden">
                     <h3>Escolha sua Ação</h3>
                     <div class="actions-grid" id="actions-grid"></div>
+                    <button id="btn-cancel-action" class="btn btn-secondary">Cancelar</button>
                 </div>
 
                 <!-- Contestar ação de outro jogador (visível só quando é possível) -->
@@ -207,7 +213,7 @@
                 </section>
                 <section class="rules-section">
                     <h3>Setup</h3>
-                    <p>Cada jogador recebe 2 cartas viradas para baixo e 2 moedas. Baralho tem 15 cartas (3 de cada: Duque, Assassino, Capitão, Embaixadora, Condessa).</p>
+                    <p>Cada jogador recebe 2 cartas viradas para baixo e 2 moedas. Baralho tem 15 cartas (3 de cada: Duque, Assassino, Capitão, Embaixadora, Condessa). Com a opção "Com Inquisidor", 18 cartas (+3 Inquisidores). Com 2 jogadores, cada um recebe 3 cartas.</p>
                 </section>
                 <section class="rules-section">
                     <h3>Ações</h3>
@@ -217,12 +223,15 @@
                         </thead>
                         <tbody>
                             <tr><td>Renda</td><td>—</td><td>+1 moeda</td><td>Não</td></tr>
-                            <tr><td>Ajuda Externa</td><td>—</td><td>+2 moedas</td><td>Duque</td></tr>
+                            <tr><td>Ajuda Externa</td><td>—</td><td>+2 moedas (não contestável: não exige carta)</td><td>Duque (qualquer jogador)</td></tr>
                             <tr><td>Golpe</td><td>7 moedas</td><td>Força outro a perder 1 influência (obrigatório com 10+ moedas)</td><td>Não</td></tr>
                             <tr><td>Taxar (Duque)</td><td>—</td><td>+3 moedas</td><td>Não</td></tr>
                             <tr><td>Assassinato (Assassino)</td><td>3 moedas</td><td>Força o alvo a perder 1 influência</td><td>Condessa (alvo)</td></tr>
-                            <tr><td>Roubo (Capitão)</td><td>—</td><td>Rouba até 2 moedas do alvo</td><td>Capitão, Embaixadora (alvo)</td></tr>
+                            <tr><td>Roubo (Capitão)</td><td>—</td><td>Rouba até 2 moedas do alvo</td><td>Capitão, Embaixadora, Inquisidor* (alvo)</td></tr>
                             <tr><td>Troca (Embaixadora)</td><td>—</td><td>Compra 2 cartas do baralho, devolve 2</td><td>Não</td></tr>
+                            <tr><td>Troca (Inquisidor*)</td><td>—</td><td>Compra 1 carta do baralho, devolve 1</td><td>Não</td></tr>
+                            <tr><td>Investigar (Inquisidor*)</td><td>—</td><td>Alvo mostra 1 carta; Inquisidor devolve ou obriga a trocar</td><td>Não</td></tr>
+                            <tr><td colspan="4">* Só com a opção "Com Inquisidor" (baralho de 18 cartas, 3 Inquisidores)</td></tr>
                         </tbody>
                     </table>
                 </section>
@@ -230,9 +239,16 @@
                     <h3>Blefe e Contestação</h3>
                     <ul>
                         <li>Pode declarar qualquer ação/personagem sem ter a carta</li>
-                        <li>Qualquer jogador pode contestar</li>
-                        <li>Quem perde a contestação perde 1 influência</li>
-                        <li>Se blefador for pego, ele perde; se contestador errar, ele perde</li>
+                        <li><strong>Contestar</strong> = duvidar que alguém tem a carta (ação ou bloqueio). Qualquer jogador pode contestar</li>
+                        <li><strong>Bloquear</strong> = declarar uma carta que impede a ação. Bloqueio também pode ser contestado</li>
+                        <li>Roubo e Assassinato: só o <strong>alvo</strong> pode bloquear. Ajuda Externa: qualquer jogador</li>
+                        <li>Quem perde a contestação perde 1 influência: blefador pego perde; contestador que errou perde</li>
+                        <li>Contestação da ação falhou: a ação segue, mas o alvo ainda pode bloquear</li>
+                        <li>Contestação da ação venceu: a ação é cancelada</li>
+                        <li>Bloqueio blefado desmascarado: a ação acontece normalmente</li>
+                        <li>Bloqueio verdadeiro (ou não contestado): a ação é cancelada</li>
+                        <li>Assassinato: alvo pode perder 2 cartas (contestar errado, ou blefar Condessa e ser pego)</li>
+                        <li>Assassino blefando desmascarado recebe as moedas de volta; bloqueado pela Condessa verdadeira, as moedas ficam gastas</li>
                         <li>Quem provou ter a carta devolve-a ao baralho e compra outra</li>
                         <li>Cartas perdidas ficam viradas para cima, visíveis a todos</li>
                         <li>Há 30s para responder; sem resposta, a ação é permitida</li>
@@ -240,7 +256,7 @@
                 </section>
                 <section class="rules-section">
                     <h3>Eliminação e Vitória</h3>
-                    <p>Quando um jogador perde as 2 influências, sai do jogo. Último sobrevivente vence.</p>
+                    <p>Quando um jogador perde todas as influências (2, ou 3 no jogo de 2 jogadores), sai do jogo. Último sobrevivente vence.</p>
                 </section>
                 <section class="rules-section">
                     <h3>Variante 2 Jogadores</h3>
@@ -249,7 +265,8 @@
                 <section class="rules-section">
                     <h3>Regras da Casa Populares (Opcionais)</h3>
                     <ul>
-                        <li><strong>Sem Blefe 1ª Rodada:</strong> Primeira rodada apenas ações com cartas reais</li>
+                        <li><strong>Sem Blefe 1ª Rodada:</strong> Na primeira rodada, ações e bloqueios só com cartas reais (marcada por padrão; contestar continua permitido)</li>
+                        <li><strong>Com Inquisidor:</strong> Adiciona o Inquisidor ao baralho, junto com o Embaixador</li>
                         <li><strong>Revelar Todas na Morte:</strong> Eliminado mostra todas as cartas restantes</li>
                         <li><strong>Assassino = 2💰:</strong> Assassinato custa 2 moedas (mais agressivo)</li>
                     </ul>
@@ -277,6 +294,10 @@
                         <div class="character-card">
                             <img src="assets/countess.svg" alt="Condessa" class="char-img">
                             <span>Condessa</span>
+                        </div>
+                        <div class="character-card">
+                            <img src="assets/inquisitor.svg" alt="Inquisidor" class="char-img">
+                            <span>Inquisidor*</span>
                         </div>
                     </div>
                 </section>

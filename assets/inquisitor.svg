@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 420" width="300" height="420">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a2e"/>
+      <stop offset="100%" style="stop-color:#1f3a2a"/>
+    </linearGradient>
+    <linearGradient id="greenGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#5fd39a"/>
+      <stop offset="100%" style="stop-color:#2e9e6a"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect width="300" height="420" fill="url(#bgGrad)"/>
+  <rect x="10" y="10" width="280" height="400" fill="none" stroke="url(#greenGrad)" stroke-width="3" rx="15"/>
+  <rect x="20" y="20" width="260" height="380" fill="none" stroke="#2a2a4a" stroke-width="1" rx="10"/>
+
+  <g transform="translate(150, 60)">
+    <circle r="35" fill="url(#greenGrad)" filter="url(#glow)"/>
+    <circle cx="-4" cy="-4" r="12" fill="none" stroke="#1a1a2e" stroke-width="4"/>
+    <line x1="5" y1="5" x2="16" y2="16" stroke="#1a1a2e" stroke-width="5" stroke-linecap="round"/>
+  </g>
+
+  <text x="150" y="140" text-anchor="middle" font-family="Cinzel, Georgia, serif" font-size="26" font-weight="bold" fill="url(#greenGrad)" letter-spacing="3">INQUISIDOR</text>
+  <text x="150" y="175" text-anchor="middle" font-family="Georgia, serif" font-size="14" fill="#b0b0b0" letter-spacing="1">OLHOS DA COROA</text>
+
+  <g transform="translate(150, 195)" stroke="url(#greenGrad)" fill="url(#greenGrad)">
+    <path d="M-60,0 L-20,0 M20,0 L60,0" stroke-width="2"/>
+    <circle r="4"/>
+  </g>
+
+  <!-- Olho que tudo vê -->
+  <g transform="translate(150, 280)">
+    <path d="M-70,0 Q0,-60 70,0 Q0,60 -70,0 Z" fill="none" stroke="url(#greenGrad)" stroke-width="4"/>
+    <circle r="24" fill="none" stroke="url(#greenGrad)" stroke-width="3"/>
+    <circle r="11" fill="url(#greenGrad)">
+      <animate attributeName="cx" values="-8;8;-8" dur="4s" repeatCount="indefinite"/>
+    </circle>
+    <g stroke="url(#greenGrad)" stroke-width="2" stroke-linecap="round" opacity="0.7">
+      <line x1="0" y1="-48" x2="0" y2="-62"/>
+      <line x1="-30" y1="-40" x2="-38" y2="-52"/>
+      <line x1="30" y1="-40" x2="38" y2="-52"/>
+    </g>
+  </g>
+
+  <g transform="translate(150, 380)" fill="#5fd39a" font-family="Georgia, serif" font-size="11" text-anchor="middle">
+    <text x="-70" y="0">TROCA 1 · INVESTIGAR</text>
+    <text x="70" y="0">BLOQUEIA ROUBO</text>
+  </g>
+</svg>

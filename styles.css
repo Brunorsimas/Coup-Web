@@ -1582,8 +1582,34 @@ body {
 }
 
 @media (max-width: 480px) {
+    /* 2 colunas: menos rolagem para alcançar os botões */
     .actions-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .room-info-top {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .house-rules-badge {
+        white-space: normal;
+    }
+
+    .rules-table {
+        font-size: 0.75rem;
+        table-layout: fixed;
+        width: 100%;
+        word-break: break-word;
+    }
+
+    .rules-table th, .rules-table td {
+        padding: 0.3rem;
+    }
+
+    /* alvo de toque mínimo */
+    .btn, .action-btn {
+        min-height: 44px;
     }
     
     .players-bar {

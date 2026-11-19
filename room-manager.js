@@ -209,7 +209,7 @@ async function startGame(houseRules = {}) {
     const playerCount = players.length;
     const cardsPerPlayer = GameLogic.getInitialCardsPerPlayer(playerCount, houseRules);
     
-    let deck = GameLogic.createDeck();
+    let deck = GameLogic.createDeck(houseRules);
     const gamePlayers = {};
     
     players.forEach((p, index) => {

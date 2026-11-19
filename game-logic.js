@@ -7,7 +7,8 @@ const CHARACTERS = {
     ASSASSIN: 'assassin',
     CAPTAIN: 'captain',
     AMBASSADOR: 'ambassador',
-    COUNTESS: 'countess'
+    COUNTESS: 'countess',
+    INQUISITOR: 'inquisitor' // opcional: entra junto com o Embaixador (houseRules.withInquisitor)
 };
 
 // House Rules Configuration
@@ -72,7 +73,8 @@ const CHARACTER_LABELS = {
     [CHARACTERS.ASSASSIN]: 'Assassino',
     [CHARACTERS.CAPTAIN]: 'Capitão',
     [CHARACTERS.AMBASSADOR]: 'Embaixadora',
-    [CHARACTERS.COUNTESS]: 'Condessa'
+    [CHARACTERS.COUNTESS]: 'Condessa',
+    [CHARACTERS.INQUISITOR]: 'Inquisidor'
 };
 
 const CHARACTER_ICONS = {
@@ -80,7 +82,8 @@ const CHARACTER_ICONS = {
     [CHARACTERS.ASSASSIN]: '🗡️',
     [CHARACTERS.CAPTAIN]: '⚓',
     [CHARACTERS.AMBASSADOR]: '🤝',
-    [CHARACTERS.COUNTESS]: '👸'
+    [CHARACTERS.COUNTESS]: '👸',
+    [CHARACTERS.INQUISITOR]: '🔍'
 };
 
 const ACTIONS = {
@@ -90,7 +93,9 @@ const ACTIONS = {
     COUP: 'coup',
     ASSASSINATE: 'assassinate',
     STEAL: 'steal',
-    EXCHANGE: 'exchange'
+    EXCHANGE: 'exchange',
+    INQ_EXCHANGE: 'inq_exchange', // Inquisidor: compra 1, devolve 1
+    EXAMINE: 'examine'            // Inquisidor: olha 1 carta do alvo e pode forçar troca
 };
 
 const ACTION_LABELS = {
@@ -100,7 +105,9 @@ const ACTION_LABELS = {
     [ACTIONS.COUP]: 'Golpe',
     [ACTIONS.ASSASSINATE]: 'Assassinato',
     [ACTIONS.STEAL]: 'Roubo',
-    [ACTIONS.EXCHANGE]: 'Troca'
+    [ACTIONS.EXCHANGE]: 'Troca (Embaixador)',
+    [ACTIONS.INQ_EXCHANGE]: 'Troca (Inquisidor)',
+    [ACTIONS.EXAMINE]: 'Investigar'
 };
 
 const ACTION_COSTS = {
@@ -110,7 +117,9 @@ const ACTION_COSTS = {
     [ACTIONS.COUP]: 7,
     [ACTIONS.ASSASSINATE]: 3,
     [ACTIONS.STEAL]: 0,
-    [ACTIONS.EXCHANGE]: 0
+    [ACTIONS.EXCHANGE]: 0,
+    [ACTIONS.INQ_EXCHANGE]: 0,
+    [ACTIONS.EXAMINE]: 0
 };
 
 // House Rules (serão passados do estado do jogo)
@@ -132,20 +141,26 @@ function getCurrentHouseRules() {
 const ACTION_BLOCKERS = {
     [ACTIONS.FOREIGN_AID]: [CHARACTERS.DUKE],
     [ACTIONS.ASSASSINATE]: [CHARACTERS.COUNTESS],
-    [ACTIONS.STEAL]: [CHARACTERS.CAPTAIN, CHARACTERS.AMBASSADOR]
+    [ACTIONS.STEAL]: [CHARACTERS.CAPTAIN, CHARACTERS.AMBASSADOR, CHARACTERS.INQUISITOR]
 };
+
+// Personagens presentes na partida (Inquisidor só se ativado)
+function inGame(gameState, character) {
+    return character !== CHARACTERS.INQUISITOR || !!gameState?.houseRules?.withInquisitor;
+}
 
 const BLOCKER_LABELS = {
     [CHARACTERS.DUKE]: 'Duque (bloqueia Ajuda Externa)',
     [CHARACTERS.COUNTESS]: 'Condessa (bloqueia Assassinato)',
     [CHARACTERS.CAPTAIN]: 'Capitão (bloqueia Roubo)',
-    [CHARACTERS.AMBASSADOR]: 'Embaixadora (bloqueia Roubo/Troca)'
+    [CHARACTERS.AMBASSADOR]: 'Embaixadora (bloqueia Roubo)',
+    [CHARACTERS.INQUISITOR]: 'Inquisidor (bloqueia Roubo)'
 };
 
-// Cria baralho inicial (3 de cada personagem)
-function createDeck() {
+// Cria baralho inicial (3 de cada personagem; 18 cartas com Inquisidor)
+function createDeck(houseRules = {}) {
     const deck = [];
-    Object.values(CHARACTERS).forEach(char => {
+    Object.values(CHARACTERS).filter(c => inGame({ houseRules }, c)).forEach(char => {
         for (let i = 0; i < 3; i++) {
             deck.push(char);
         }
@@ -177,7 +192,7 @@ function canAfford(player, action) {
 
 // Verifica se ação requer alvo
 function requiresTarget(action) {
-    return [ACTIONS.COUP, ACTIONS.ASSASSINATE, ACTIONS.STEAL].includes(action);
+    return [ACTIONS.COUP, ACTIONS.ASSASSINATE, ACTIONS.STEAL, ACTIONS.EXAMINE].includes(action);
 }
 
 // Verifica se ação é bloqueável
@@ -260,7 +275,8 @@ function processAssassinate(gameState, playerId, targetId) {
         type: ACTIONS.ASSASSINATE,
         playerId,
         targetId,
-        claimedCharacter: CHARACTERS.ASSASSIN
+        claimedCharacter: CHARACTERS.ASSASSIN,
+        cost // devolvido se o blefe do Assassino for desmascarado
     };
     openResponseWindow(gameState, 'challenge_block');
 }
@@ -297,6 +313,54 @@ function processExchange(gameState, playerId) {
         claimedCharacter: CHARACTERS.AMBASSADOR
     };
     openResponseWindow(gameState, 'challenge_block'); // contestável antes de trocar
+}
+
+// Inquisidor: Troca de 1 carta (contestável, não bloqueável)
+function processInqExchange(gameState, playerId) {
+    const player = gameState.players[playerId];
+    addLog(gameState, 'action', `${player.name} usou <span class="log-action">Troca</span> (Inquisidor)`);
+    gameState.pendingAction = { type: ACTIONS.INQ_EXCHANGE, playerId, claimedCharacter: CHARACTERS.INQUISITOR };
+    openResponseWindow(gameState, 'challenge_block');
+}
+
+// Inquisidor: Investigar um jogador (contestável, não bloqueável)
+function processExamine(gameState, playerId, targetId) {
+    const player = gameState.players[playerId];
+    const target = gameState.players[targetId];
+    addLog(gameState, 'action', `${player.name} quer <span class="log-action">Investigar</span> <span class="log-target">${target.name}</span> (Inquisidor)`);
+    gameState.pendingAction = { type: ACTIONS.EXAMINE, playerId, targetId, claimedCharacter: CHARACTERS.INQUISITOR };
+    openResponseWindow(gameState, 'challenge_block');
+}
+
+// Investigar, passo 1: alvo escolhe qual carta mostrar ao Inquisidor
+function processExamineShow(gameState, targetId, character) {
+    const action = gameState.pendingAction;
+    const target = gameState.players[targetId];
+    if (gameState.phase !== 'examine_show' || action?.targetId !== targetId || !target.influences.includes(character)) return false;
+    gameState.examinedCard = character;
+    gameState.phase = 'examine_decide';
+    addLog(gameState, 'result', `${target.name} mostrou uma carta a ${gameState.players[action.playerId].name}`);
+    return true;
+}
+
+// Investigar, passo 2: Inquisidor devolve a carta ou força a troca com o baralho
+function processExamineDecide(gameState, playerId, forceSwap) {
+    const action = gameState.pendingAction;
+    if (gameState.phase !== 'examine_decide' || action?.playerId !== playerId) return false;
+    const target = gameState.players[action.targetId];
+    const card = gameState.examinedCard;
+    if (forceSwap) {
+        target.influences.splice(target.influences.indexOf(card), 1);
+        const { drawn, remaining } = drawCards(shuffleArray([...gameState.deck, card]), 1);
+        target.influences.push(drawn[0]);
+        gameState.deck = remaining;
+        addLog(gameState, 'result', `${gameState.players[playerId].name} forçou ${target.name} a <span class="log-action">trocar</span> a carta`);
+    } else {
+        addLog(gameState, 'result', `${gameState.players[playerId].name} devolveu a carta a ${target.name}`);
+    }
+    gameState.examinedCard = null;
+    nextTurn(gameState);
+    return true;
 }
 
 // Processa bloqueio
@@ -384,7 +448,7 @@ function canDeclareBlock(gameState, playerId) {
 function blockOptions(gameState, playerId) {
     if (!canDeclareBlock(gameState, playerId)) return [];
     const player = gameState.players[playerId];
-    const chars = getBlockers(gameState.pendingAction.type);
+    const chars = getBlockers(gameState.pendingAction.type).filter(c => inGame(gameState, c));
     return isBluffAllowed(gameState) ? chars : chars.filter(c => hasCharacter(player, c));
 }
 
@@ -478,7 +542,9 @@ function resolveChallenge(gameState) {
         // Blefe da ação: cancelada. Blefe do bloqueio: ação prossegue após a perda.
         actionProceeds = challenge.isBlockChallenge;
         if (!actionProceeds && gameState.pendingAction?.type === ACTIONS.ASSASSINATE) {
-            addLog(gameState, 'result', `Assassinato cancelado: blefe desmascarado.`);
+            const refund = gameState.pendingAction.cost || 0;
+            target.coins += refund; // house rule pedida: blefe desmascarado devolve as moedas
+            addLog(gameState, 'result', `Assassinato cancelado: blefe desmascarado. ${target.name} recebe ${refund} moedas de volta.`);
         }
     }
     
@@ -543,8 +609,18 @@ function applyPendingAction(gameState) {
             gameState.phase = 'lose_influence';
             break;
         }
+        case ACTIONS.EXAMINE: {
+            const target = gameState.players[action.targetId];
+            if (!target.alive || !actor.alive) { nextTurn(gameState); break; }
+            gameState.pendingBlock = null;
+            gameState.phase = 'examine_show';
+            break;
+        }
+        case ACTIONS.INQ_EXCHANGE:
         case ACTIONS.EXCHANGE: {
-            const { drawn, remaining } = drawCards(gameState.deck, 2);
+            if (!actor.alive) { nextTurn(gameState); break; }
+            const n = action.type === ACTIONS.EXCHANGE ? 2 : 1;
+            const { drawn, remaining } = drawCards(gameState.deck, n);
             gameState.exchangeOffer = drawn;
             gameState.deck = remaining;
             gameState.pendingBlock = null;
@@ -775,6 +851,13 @@ function getAvailableActions(player, gameState) {
         blockable: false,
         disabled: mustCoupNow || (!allowBluff && !hasAmbassador)
     });
+
+    if (inGame(gameState, CHARACTERS.INQUISITOR)) {
+        const hasInq = hasCharacter(player, CHARACTERS.INQUISITOR);
+        const off = mustCoupNow || (!allowBluff && !hasInq);
+        actions.push({ id: ACTIONS.INQ_EXCHANGE, label: ACTION_LABELS[ACTIONS.INQ_EXCHANGE], cost: 0, primary: hasInq, bluff: allowBluff && !hasInq, blockable: false, disabled: off });
+        actions.push({ id: ACTIONS.EXAMINE, label: ACTION_LABELS[ACTIONS.EXAMINE], cost: 0, primary: hasInq, bluff: allowBluff && !hasInq, requiresTarget: true, blockable: false, disabled: off });
+    }
     
     return actions;
 }
@@ -829,6 +912,11 @@ const GameLogic = {
     processAssassinate,
     processSteal,
     processExchange,
+    processInqExchange,
+    processExamine,
+    processExamineShow,
+    processExamineDecide,
+    inGame,
     processBlock,
     processChallenge,
     

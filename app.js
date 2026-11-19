@@ -60,6 +60,7 @@ function setupEventListeners() {
     
     // Ação cancelar
     document.getElementById('btn-challenge-action').addEventListener('click', respondChallenge);
+    document.getElementById('btn-cancel-action').addEventListener('click', cancelAction);
 }
 
 // Room Manager Listeners
@@ -560,6 +561,15 @@ function selectTarget(playerId) {
     updateOpponents(roomData);
 }
 
+// Desiste da ação escolhida (antes de escolher o alvo)
+function cancelAction() {
+    selectedAction = null;
+    selectedTarget = null;
+    highlightValidTargets(false);
+    updateOpponents(roomData);
+    updateActionsPanel(roomData);
+}
+
 function highlightValidTargets(highlight) {
     document.querySelectorAll('.opponent-card').forEach(card => {
         card.style.pointerEvents = highlight ? 'auto' : 'none';
@@ -591,6 +601,12 @@ function executeAction(actionId, targetId) {
             break;
         case GameLogic.ACTIONS.EXCHANGE:
             GameLogic.processExchange(gameState, playerId);
+            break;
+        case GameLogic.ACTIONS.INQ_EXCHANGE:
+            GameLogic.processInqExchange(gameState, playerId);
+            break;
+        case GameLogic.ACTIONS.EXAMINE:
+            GameLogic.processExamine(gameState, playerId, targetId);
             break;
     }
     
@@ -747,8 +763,17 @@ function checkForChallenges(room) {
     // Fecha modais quando nada é exigido deste jogador
     const needsMe = responding
         || (phase === 'lose_influence' && gameState.pendingLoss?.playerId === playerId)
-        || (phase === 'exchange' && isMyTurn);
+        || (phase === 'exchange' && isMyTurn)
+        || (phase === 'examine_show' && gameState.pendingAction?.targetId === playerId)
+        || (phase === 'examine_decide' && isMyTurn);
     if (!needsMe) { closeAllModals(); shownModalKey = null; }
+
+    // Investigar: alvo escolhe carta a mostrar; Inquisidor decide
+    if ((phase === 'examine_show' || phase === 'examine_decide') && needsMe) {
+        if (shownModalKey !== modalKey) showExamineModal(gameState, phase);
+        shownModalKey = modalKey;
+        return;
+    }
 
     // Fase de contestação/bloqueio (todos vivos exceto o autor)
     if (phase === 'challenge_block' && responding) {
@@ -791,7 +816,7 @@ function showResponseModal(titleText, html, buttons) {
     const modal = document.getElementById('modal-challenge');
     document.getElementById('challenge-title').textContent = titleText;
     document.getElementById('challenge-text').innerHTML =
-        html + `<div class="response-timer">⏳ <span id="response-countdown"></span>s</div>`;
+        html + (roomData?.gameState?.deadline ? `<div class="response-timer">⏳ <span id="response-countdown"></span>s</div>` : '');
     const box = modal.querySelector('.modal-actions');
     box.innerHTML = '';
     buttons.forEach(b => {
@@ -803,6 +828,30 @@ function showResponseModal(titleText, html, buttons) {
     });
     tickResponseTimer();
     showModal(modal);
+}
+
+// Investigar (Inquisidor): reaproveita modal de resposta, sem timer
+function showExamineModal(gameState, phase) {
+    const action = gameState.pendingAction;
+    const target = gameState.players[action.targetId];
+    const send = fn => () => { fn(); RoomManager.updateGameState(gameState); closeAllModals(); };
+    let title, html, buttons;
+    if (phase === 'examine_show') {
+        title = 'Investigação';
+        html = `${gameState.players[action.playerId].name} (Inquisidor) quer ver uma carta sua. Escolha qual mostrar:`;
+        buttons = [...new Set(target.influences)].map(ch => ({
+            label: GameLogic.CHARACTER_LABELS[ch], cls: 'btn-secondary',
+            fn: send(() => GameLogic.processExamineShow(gameState, target.id, ch))
+        }));
+    } else {
+        title = 'Investigação';
+        html = `${target.name} mostrou: <strong>${GameLogic.CHARACTER_LABELS[gameState.examinedCard]}</strong>`;
+        buttons = [
+            { label: 'Devolver', cls: 'btn-primary', fn: send(() => GameLogic.processExamineDecide(gameState, action.playerId, false)) },
+            { label: 'Forçar troca', cls: 'btn-danger', fn: send(() => GameLogic.processExamineDecide(gameState, action.playerId, true)) }
+        ];
+    }
+    showResponseModal(title, html, buttons);
 }
 
 function showChallengeModal(action) {
@@ -938,6 +987,7 @@ function formatHouseRuleName(key) {
         noBluffFirstRound: 'SemBlefe1ª',
         revealAllOnDeath: 'RevelaMorte',
         assassinCosts2: 'Assassino2💰',
+        withInquisitor: 'Inquisidor',
         twoPlayerVariant: '2Jog=3Cartas'
     };
     return names[key] || key;
@@ -955,7 +1005,9 @@ function getActionIcon(actionId) {
         coup: '⚔️',
         assassinate: '🗡️',
         steal: '💸',
-        exchange: '🔄'
+        exchange: '🔄',
+        inq_exchange: '🔁',
+        examine: '🔍'
     };
     return icons[actionId] || '❓';
 }
