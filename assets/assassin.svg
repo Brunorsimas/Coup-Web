@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 300 420" width="300" height="420">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a2e"/>
+      <stop offset="100%" style="stop-color:#0f3460"/>
+    </linearGradient>
+    <linearGradient id="redGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#e94c4c"/>
+      <stop offset="100%" style="stop-color:#c0392b"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    
+    <symbol id="dagger-icon" viewBox="0 0 40 40">
+      <path d="M20,2 L20,28 M14,14 L26,26 M26,14 L14,26" 
+            fill="none" stroke="url(#redGrad)" stroke-width="3" stroke-linecap="round"/>
+      <ellipse cx="20" cy="30" rx="8" ry="4" fill="url(#redGrad)"/>
+    </symbol>
+    
+    <symbol id="skull-icon" viewBox="0 0 24 24">
+      <circle cx="12" cy="10" r="7" fill="url(#redGrad)"/>
+      <ellipse cx="10" cy="8" rx="2" ry="2.5" fill="#1a1a2e"/>
+      <ellipse cx="14" cy="8" rx="2" ry="2.5" fill="#1a1a2e"/>
+      <path d="M8,14 Q12,16 16,14" fill="none" stroke="#1a1a2e" stroke-width="1.5"/>
+      <line x1="10" y1="12" x2="10" y2="13" stroke="#1a1a2e" stroke-width="0.5"/>
+      <line x1="14" y1="12" x2="14" y2="13" stroke="#1a1a2e" stroke-width="0.5"/>
+    </symbol>
+  </defs>
+  
+  <rect width="300" height="420" fill="url(#bgGrad)"/>
+  <rect x="10" y="10" width="280" height="400" fill="none" stroke="url(#redGrad)" stroke-width="3" rx="15"/>
+  <rect x="20" y="20" width="260" height="380" fill="none" stroke="#2a2a4a" stroke-width="1" rx="10"/>
+  
+  <g transform="translate(150, 60)">
+    <circle r="35" fill="url(#redGrad)" filter="url(#glow)"/>
+    <use href="#dagger-icon" xlink:href="#dagger-icon" x="-20" y="-20" width="40" height="40"/>
+  </g>
+  
+  <text x="150" y="140" text-anchor="middle" font-family="Cinzel, Georgia, serif" font-size="28" font-weight="bold" fill="url(#redGrad)" letter-spacing="3">ASSASSINO</text>
+  <text x="150" y="175" text-anchor="middle" font-family="Georgia, serif" font-size="14" fill="#b0b0b0" letter-spacing="1">SILENT BLADE</text>
+  
+  <g transform="translate(150, 195)" fill="url(#redGrad)">
+    <path d="M-60,0 L-20,0 M20,0 L60,0" stroke-width="2"/>
+    <circle r="4" cy="0"/>
+  </g>
+  
+  <g transform="translate(150, 280)">
+    <path d="M0,-100 L0,20" fill="none" stroke="url(#redGrad)" stroke-width="6" stroke-linecap="round">
+      <animate attributeName="stroke-width" values="6;8;6" dur="1.5s" repeatCount="indefinite"/>
+    </path>
+    <path d="M-20,20 L0,-10 L20,20 Z" fill="url(#redGrad)"/>
+    <ellipse cx="0" cy="20" rx="25" ry="10" fill="#16213e" stroke="url(#redGrad)" stroke-width="2"/>
+    <path d="M-15,20 Q0,35 15,20" fill="none" stroke="url(#redGrad)" stroke-width="2"/>
+    <path d="M-10,20 Q0,30 10,20" fill="none" stroke="#e94c4c" stroke-width="1" opacity="0.6"/>
+    
+    <g fill="url(#redGrad)" opacity="0.8">
+      <circle cx="-30" cy="40" r="4"><animate attributeName="cy" values="40;50;40" dur="2s" repeatCount="indefinite"/></circle>
+      <circle cx="30" cy="45" r="3"><animate attributeName="cy" values="45;55;45" dur="2s" repeatCount="indefinite" begin="0.5s"/></circle>
+      <circle cx="0" cy="55" r="5"><animate attributeName="cy" values="55;65;55" dur="2s" repeatCount="indefinite" begin="1s"/></circle>
+    </g>
+  </g>
+  
+  <g transform="translate(150, 380)" fill="#e94c4c" font-family="Georgia, serif" font-size="11" text-anchor="middle">
+    <text x="-100" y="0"><use href="#dagger-icon" xlink:href="#dagger-icon" x="-12" y="-10" width="20" height="20"/> ASSASSINATO (3 moedas)</text>
+    <text x="100" y="0"><use href="#skull-icon" xlink:href="#skull-icon" x="-12" y="-10" width="20" height="20"/> MATA 1 INFLUENCIA</text>
+  </g>
+  
+  <g transform="translate(40, 380)" fill="url(#redGrad)" opacity="0.7">
+    <use href="#dagger-icon" xlink:href="#dagger-icon" x="-12" y="-12" width="24" height="24"/>
+  </g>
+  <g transform="translate(260, 380)" fill="url(#redGrad)" opacity="0.7">
+    <use href="#dagger-icon" xlink:href="#dagger-icon" x="-12" y="-12" width="24" height="24"/>
+  </g>
+</svg>

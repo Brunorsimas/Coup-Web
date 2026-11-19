@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 300 420" width="300" height="420">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a2e"/>
+      <stop offset="100%" style="stop-color:#0f3460"/>
+    </linearGradient>
+    <linearGradient id="blueGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4c9ee9"/>
+      <stop offset="100%" style="stop-color:#3a7bd5"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    
+    <symbol id="anchor-icon" viewBox="0 0 40 40">
+      <path d="M20,4 L20,20 M10,16 Q20,10 30,16 M20,20 L20,32 M14,32 L26,32" 
+            fill="none" stroke="url(#blueGrad)" stroke-width="3" stroke-linecap="round"/>
+      <ellipse cx="20" cy="34" rx="10" ry="3" fill="url(#blueGrad)" opacity="0.3"/>
+    </symbol>
+    
+    <symbol id="coin-icon" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="10" fill="url(#blueGrad)" stroke="#fff" stroke-width="1"/>
+      <text x="12" y="16" text-anchor="middle" font-size="12" fill="#1a1a2e" font-weight="bold">$</text>
+    </symbol>
+    
+    <symbol id="shield-icon" viewBox="0 0 24 24">
+      <path d="M12,2 L22,8 v8 L12,22 L2,16 V8 Z" fill="url(#blueGrad)" stroke="#fff" stroke-width="1"/>
+    </symbol>
+  </defs>
+  
+  <rect width="300" height="420" fill="url(#bgGrad)"/>
+  <rect x="10" y="10" width="280" height="400" fill="none" stroke="url(#blueGrad)" stroke-width="3" rx="15"/>
+  <rect x="20" y="20" width="260" height="380" fill="none" stroke="#2a2a4a" stroke-width="1" rx="10"/>
+  
+  <g transform="translate(150, 60)">
+    <circle r="35" fill="url(#blueGrad)" filter="url(#glow)"/>
+    <use href="#anchor-icon" xlink:href="#anchor-icon" x="-20" y="-20" width="40" height="40"/>
+  </g>
+  
+  <text x="150" y="140" text-anchor="middle" font-family="Cinzel, Georgia, serif" font-size="28" font-weight="bold" fill="url(#blueGrad)" letter-spacing="3">CAPITÃO</text>
+  <text x="150" y="175" text-anchor="middle" font-family="Georgia, serif" font-size="14" fill="#b0b0b0" letter-spacing="1">MASTER OF COIN</text>
+  
+  <g transform="translate(150, 195)" fill="url(#blueGrad)">
+    <path d="M-60,0 L-20,0 M20,0 L60,0" stroke-width="2"/>
+    <circle r="4" cy="0"/>
+  </g>
+  
+  <g transform="translate(150, 280)">
+    <circle r="55" fill="none" stroke="url(#blueGrad)" stroke-width="4"/>
+    <circle r="35" fill="none" stroke="url(#blueGrad)" stroke-width="3"/>
+    <circle r="12" fill="url(#blueGrad)">
+      <animate attributeName="r" values="12;14;12" dur="2s" repeatCount="indefinite"/>
+    </circle>
+    
+    <g stroke="url(#blueGrad)" stroke-width="3" stroke-linecap="round">
+      <line x1="0" y1="-55" x2="0" y2="-35"/>
+      <line x1="0" y1="35" x2="0" y2="55"/>
+      <line x1="-55" y1="0" x2="-35" y2="0"/>
+      <line x1="35" y1="0" x2="55" y2="0"/>
+      <line x1="-39" y1="-39" x2="-25" y2="-25"/>
+      <line x1="25" y1="25" x2="39" y2="39"/>
+      <line x1="-39" y1="39" x2="-25" y2="25"/>
+      <line x1="25" y1="-25" x2="39" y2="-39"/>
+    </g>
+    
+    <g fill="url(#blueGrad)" transform="translate(0, 80)">
+      <g opacity="0.9">
+        <circle cx="-40" cy="-20" r="10">
+          <animate attributeName="cy" values="-20;60;-20" dur="3s" repeatCount="indefinite"/>
+          <animate attributeName="opacity" values="0.9;0.3;0.9" dur="3s" repeatCount="indefinite"/>
+        </circle>
+        <use href="#coin-icon" xlink:href="#coin-icon" x="-50" y="-30" width="20" height="20">
+          <animate attributeName="transform" values="translate(-40,-20); translate(-40,60); translate(-40,-20)" dur="3s" repeatCount="indefinite"/>
+        </use>
+      </g>
+      <g opacity="0.7">
+        <circle cx="0" cy="-40" r="10">
+          <animate attributeName="cy" values="-40;80;-40" dur="3s" repeatCount="indefinite" begin="1s"/>
+          <animate attributeName="opacity" values="0.7;0.2;0.7" dur="3s" repeatCount="indefinite" begin="1s"/>
+        </circle>
+        <use href="#coin-icon" xlink:href="#coin-icon" x="-10" y="-50" width="20" height="20">
+          <animate attributeName="transform" values="translate(0,-40); translate(0,80); translate(0,-40)" dur="3s" repeatCount="indefinite" begin="1s"/>
+        </use>
+      </g>
+      <g opacity="0.8">
+        <circle cx="40" cy="-10" r="10">
+          <animate attributeName="cy" values="-10;50;-10" dur="3s" repeatCount="indefinite" begin="2s"/>
+          <animate attributeName="opacity" values="0.8;0.3;0.8" dur="3s" repeatCount="indefinite" begin="2s"/>
+        </circle>
+        <use href="#coin-icon" xlink:href="#coin-icon" x="30" y="-20" width="20" height="20">
+          <animate attributeName="transform" values="translate(40,-10); translate(40,50); translate(40,-10)" dur="3s" repeatCount="indefinite" begin="2s"/>
+        </use>
+      </g>
+    </g>
+  </g>
+  
+  <g transform="translate(150, 380)" fill="#4c9ee9" font-family="Georgia, serif" font-size="11" text-anchor="middle">
+    <text x="-100" y="0"><use href="#coin-icon" xlink:href="#coin-icon" x="-12" y="-10" width="20" height="20"/> ROUBO (2 moedas)</text>
+    <text x="100" y="0"><use href="#shield-icon" xlink:href="#shield-icon" x="-12" y="-10" width="20" height="20"/> BLOQUEIA ROUBO</text>
+  </g>
+  
+  <g transform="translate(40, 380)" fill="url(#blueGrad)" opacity="0.7">
+    <use href="#anchor-icon" xlink:href="#anchor-icon" x="-12" y="-12" width="24" height="24"/>
+  </g>
+  <g transform="translate(260, 380)" fill="url(#blueGrad)" opacity="0.7">
+    <use href="#anchor-icon" xlink:href="#anchor-icon" x="-12" y="-12" width="24" height="24"/>
+  </g>
+</svg>

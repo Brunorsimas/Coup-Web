@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coup - Jogo de Cartas</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Creepster&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="app">
+        <!-- Tela de Entrada -->
+        <div id="screen-lobby" class="screen active">
+            <div class="lobby-container">
+                <header class="lobby-header">
+                    <h1 class="game-title">COUP</h1>
+                    <p class="game-subtitle">Jogo de Influência e Blefe</p>
+                </header>
+                
+                <div class="lobby-tabs">
+                    <button class="tab-btn active" data-tab="create">Criar Sala</button>
+                    <button class="tab-btn" data-tab="join">Entrar na Sala</button>
+                </div>
+
+                <!-- Criar Sala -->
+                <div id="tab-create" class="tab-content active">
+                    <form id="form-create" class="lobby-form">
+                        <div class="form-group">
+                            <label for="creator-name">Seu Nome</label>
+                            <input type="text" id="creator-name" placeholder="Digite seu nome" required maxlength="20">
+                        </div>
+                        <div class="form-group">
+                            <label>Número de Jogadores</label>
+                            <select id="player-count" required>
+                                <option value="2">2 Jogadores</option>
+                                <option value="3">3 Jogadores</option>
+                                <option value="4" selected>4 Jogadores</option>
+                                <option value="5">5 Jogadores</option>
+                                <option value="6">6 Jogadores</option>
+                            </select>
+                        </div>
+                        
+                        <!-- House Rules -->
+                        <fieldset class="form-group house-rules-fieldset">
+                            <legend>⚙️ Regras da Casa (Opcionais)</legend>
+                            <div class="house-rules-grid">
+                                <label class="house-rule-item">
+                                    <input type="checkbox" name="houseRule" value="noBluffFirstRound">
+                                    <span class="hr-label">Sem Blefe 1ª Rodada</span>
+                                    <span class="hr-desc">Primeira rodada apenas ações reais</span>
+                                </label>
+                                <label class="house-rule-item">
+                                    <input type="checkbox" name="houseRule" value="revealAllOnDeath">
+                                    <span class="hr-label">Revelar Todas na Morte</span>
+                                    <span class="hr-desc">Eliminado mostra todas as cartas</span>
+                                </label>
+                                <label class="house-rule-item">
+                                    <input type="checkbox" name="houseRule" value="assassinCosts2">
+                                    <span class="hr-label">Assassino = 2💰</span>
+                                    <span class="hr-desc">Custa 2 moedas (mais agressivo)</span>
+                                </label>
+                                <label class="house-rule-item">
+                                    <input type="checkbox" name="houseRule" value="dukeTax3">
+                                    <span class="hr-label">Duque = 3💰</span>
+                                    <span class="hr-desc">Ajuda Externa dá 3 moedas</span>
+                                </label>
+                            </div>
+                            <button type="button" id="btn-toggle-all-rules" class="btn btn-secondary btn-small">Selecionar Todas</button>
+                        </fieldset>
+                        
+                        <button type="submit" class="btn btn-primary btn-large">Criar Sala</button>
+                    </form>
+                    <div id="room-created" class="room-info hidden">
+                        <h3>Sala Criada!</h3>
+                        <div class="room-code-container">
+                            <span id="room-code-display" class="room-code">--</span>
+                            <button id="copy-code" class="btn btn-secondary btn-small" title="Copiar código">📋</button>
+                        </div>
+                        <p class="room-instruction">Compartilhe o código com seus amigos</p>
+                        <div id="waiting-players" class="waiting-list">
+                            <p>Aguardando jogadores...</p>
+                        </div>
+                        <button id="start-game" class="btn btn-primary btn-large hidden" disabled>Iniciar Jogo</button>
+                    </div>
+                </div>
+
+                <!-- Entrar na Sala -->
+                <div id="tab-join" class="tab-content hidden">
+                    <form id="form-join" class="lobby-form">
+                        <div class="form-group">
+                            <label for="player-name">Seu Nome</label>
+                            <input type="text" id="player-name" placeholder="Digite seu nome" required maxlength="20">
+                        </div>
+                        <div class="form-group">
+                            <label for="room-code-input">Senha da Mesa</label>
+                            <input type="text" id="room-code-input" placeholder="Ex: ABC123" required maxlength="6" style="text-transform: uppercase;" autocomplete="off">
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-large">Entrar na Sala</button>
+                    </form>
+                    <div id="join-error" class="error-message hidden"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tela de Jogo -->
+        <div id="screen-game" class="screen">
+            <header class="game-header">
+                <div class="room-info-top">
+                    <span class="room-code-badge">Sala: <span id="current-room-code">--</span></span>
+                    <span id="turn-indicator" class="turn-badge hidden">Sua vez</span>
+                </div>
+                <div id="players-bar" class="players-bar"></div>
+            </header>
+
+            <main class="game-main">
+                <!-- Área dos Oponentes -->
+                <div id="opponents-area" class="players-area opponents"></div>
+
+                <!-- Área do Jogador Atual -->
+                <div id="player-area" class="player-area">
+                    <div class="player-hand" id="player-hand">
+                        <!-- Cartas serão inseridas aqui -->
+                    </div>
+                    <div class="player-coins" id="player-coins">
+                        <span class="coin-icon">💰</span>
+                        <span id="coin-count">2</span>
+                    </div>
+                </div>
+
+                <!-- Painel de Ações -->
+                <div id="actions-panel" class="actions-panel hidden">
+                    <h3>Escolha sua Ação</h3>
+                    <div class="actions-grid" id="actions-grid"></div>
+                    <button id="btn-cancel-action" class="btn btn-secondary">Cancelar</button>
+                </div>
+
+                <!-- Log do Jogo -->
+                <div id="game-log" class="game-log">
+                    <div class="log-header">
+                        <h3>Histórico</h3>
+                        <button id="clear-log" class="btn btn-ghost btn-small">Limpar</button>
+                    </div>
+                    <div class="log-content" id="log-content"></div>
+                </div>
+            </main>
+        </div>
+
+        <!-- Tela de Fim de Jogo -->
+        <div id="screen-end" class="screen">
+            <div class="end-container">
+                <h1 class="end-title">FIM DE JOGO</h1>
+                <div id="winner-display" class="winner-display"></div>
+                <div id="final-ranking" class="final-ranking"></div>
+                <button id="btn-new-game" class="btn btn-primary btn-large">Nova Partida</button>
+                <button id="btn-back-lobby" class="btn btn-secondary btn-large">Voltar ao Lobby</button>
+            </div>
+        </div>
+
+        <!-- Modal de Contestação/Desafio -->
+        <div id="modal-challenge" class="modal hidden">
+            <div class="modal-content">
+                <h3 id="challenge-title">Contestar Ação?</h3>
+                <p id="challenge-text"></p>
+                <div class="modal-actions">
+                    <button id="btn-challenge-yes" class="btn btn-danger">Contestar</button>
+                    <button id="btn-challenge-no" class="btn btn-primary">Permitir</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal de Escolha de Carta para Perder -->
+        <div id="modal-lose-influence" class="modal hidden">
+            <div class="modal-content">
+                <h3>Perda de Influência</h3>
+                <p>Escolha qual carta revelar:</p>
+                <div class="card-choice" id="card-choice"></div>
+            </div>
+        </div>
+
+        <!-- Modal de Troca (Embaixador) -->
+        <div id="modal-exchange" class="modal hidden">
+            <div class="modal-content">
+                <h3>Troca de Influência (Embaixador)</h3>
+                <p>Suas cartas atuais:</p>
+                <div class="exchange-hand" id="exchange-hand"></div>
+                <p>Cartas disponíveis do baralho:</p>
+                <div class="deck-cards" id="deck-cards"></div>
+                <p>Selecione as cartas para manter (mesma quantidade que você tinha)</p>
+                <button id="btn-confirm-exchange" class="btn btn-primary hidden">Confirmar Troca</button>
+            </div>
+        </div>
+
+        <!-- Botão de Regras (Balão) -->
+        <button id="btn-rules" class="rules-btn" aria-label="Ver regras">
+            <span class="rules-icon">📜</span>
+        </button>
+
+        <!-- Painel de Regras (Slide-up) -->
+        <div id="rules-panel" class="rules-panel">
+            <div class="rules-header">
+                <h2>Regras do Coup</h2>
+                <button id="btn-close-rules" class="close-btn" aria-label="Fechar">×</button>
+            </div>
+            <div class="rules-content">
+                <section class="rules-section">
+                    <h3>Objetivo</h3>
+                    <p>Ser o último jogador com influência (cartas) viva.</p>
+                </section>
+                <section class="rules-section">
+                    <h3>Setup</h3>
+                    <p>Cada jogador recebe 2 cartas viradas para baixo e 2 moedas. Baralho tem 15 cartas (3 de cada: Duque, Assassino, Capitão, Embaixadora, Condessa).</p>
+                </section>
+                <section class="rules-section">
+                    <h3>Ações</h3>
+                    <table class="rules-table">
+                        <thead>
+                            <tr><th>Ação</th><th>Custo</th><th>Efeito</th><th>Bloqueável por</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>Renda</td><td>—</td><td>+1 moeda</td><td>Não</td></tr>
+                            <tr><td>Ajuda Externa</td><td>—</td><td>+2 moedas</td><td>Duque</td></tr>
+                            <tr><td>Golpe</td><td>7 moedas</td><td>Força outro a perder 1 influência (obrigatório com 10+ moedas)</td><td>Não</td></tr>
+                            <tr><td>Taxar (Duque)</td><td>—</td><td>+3 moedas</td><td>Não</td></tr>
+                            <tr><td>Assassinato (Assassino)</td><td>3 moedas</td><td>Força o alvo a perder 1 influência</td><td>Condessa (alvo)</td></tr>
+                            <tr><td>Roubo (Capitão)</td><td>—</td><td>Rouba até 2 moedas do alvo</td><td>Capitão, Embaixadora (alvo)</td></tr>
+                            <tr><td>Troca (Embaixadora)</td><td>—</td><td>Compra 2 cartas do baralho, devolve 2</td><td>Não</td></tr>
+                        </tbody>
+                    </table>
+                </section>
+                <section class="rules-section">
+                    <h3>Blefe e Contestação</h3>
+                    <ul>
+                        <li>Pode declarar qualquer ação/personagem sem ter a carta</li>
+                        <li>Qualquer jogador pode contestar</li>
+                        <li>Quem perde a contestação perde 1 influência</li>
+                        <li>Se blefador for pego, ele perde; se contestador errar, ele perde</li>
+                        <li>Quem provou ter a carta devolve-a ao baralho e compra outra</li>
+                        <li>Cartas perdidas ficam viradas para cima, visíveis a todos</li>
+                        <li>Há 30s para responder; sem resposta, a ação é permitida</li>
+                    </ul>
+                </section>
+                <section class="rules-section">
+                    <h3>Eliminação e Vitória</h3>
+                    <p>Quando um jogador perde as 2 influências, sai do jogo. Último sobrevivente vence.</p>
+                </section>
+                <section class="rules-section">
+                    <h3>Variante 2 Jogadores</h3>
+                    <p>Com 2 jogadores, cada um recebe <strong>3 cartas</strong> (em vez de 2). Baralho ajustado para 15 cartas. Jogo mais estratégico e longo.</p>
+                </section>
+                <section class="rules-section">
+                    <h3>Regras da Casa Populares (Opcionais)</h3>
+                    <ul>
+                        <li><strong>Sem Blefe 1ª Rodada:</strong> Primeira rodada apenas ações com cartas reais</li>
+                        <li><strong>Revelar Todas na Morte:</strong> Eliminado mostra todas as cartas restantes</li>
+                        <li><strong>Assassino = 2💰:</strong> Assassinato custa 2 moedas (mais agressivo)</li>
+                        <li><strong>Duque = 3💰:</strong> Ajuda Externa do Duque dá 3 moedas</li>
+                    </ul>
+                    <p style="margin-top: 0.5rem; font-size: 0.85rem; color: var(--text-muted);">Configuráveis ao criar a sala.</p>
+                </section>
+                <section class="rules-section">
+                    <h3>Personagens</h3>
+                    <div class="characters-grid">
+                        <div class="character-card">
+                            <img src="assets/duke.svg" alt="Duque" class="char-img">
+                            <span>Duque</span>
+                        </div>
+                        <div class="character-card">
+                            <img src="assets/assassin.svg" alt="Assassino" class="char-img">
+                            <span>Assassino</span>
+                        </div>
+                        <div class="character-card">
+                            <img src="assets/captain.svg" alt="Capitão" class="char-img">
+                            <span>Capitão</span>
+                        </div>
+                        <div class="character-card">
+                            <img src="assets/ambassador.svg" alt="Embaixadora" class="char-img">
+                            <span>Embaixadora</span>
+                        </div>
+                        <div class="character-card">
+                            <img src="assets/countess.svg" alt="Condessa" class="char-img">
+                            <span>Condessa</span>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+
+        <!-- Overlay para modais -->
+        <div id="modal-overlay" class="modal-overlay hidden"></div>
+    </div>
+
+    <!-- Firebase SDK (versão compat: funciona abrindo o arquivo direto, sem servidor) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+    <script>
+        // ===== CONFIGURAÇÃO FIREBASE: COLE AQUI OS DADOS DO SEU PROJETO =====
+        // Console Firebase > Configurações do projeto > Seus apps > Web > firebaseConfig
+        window.firebaseConfigData = {
+            apiKey: "AIzaSyBKVPgfoPgeiWVug7Voa5ghgnN5_PM0cKU",
+            authDomain: "coup-62cda.firebaseapp.com",
+            // Se criar o banco fora dos EUA, troque pela URL exibida no Realtime Database
+            databaseURL: "https://coup-62cda-default-rtdb.firebaseio.com",
+            projectId: "coup-62cda",
+            storageBucket: "coup-62cda.firebasestorage.app",
+            messagingSenderId: "206175596545",
+            appId: "1:206175596545:web:0ea3a0ca8e00ff80305000"
+        };
+
+        // Adaptador: assinatura modular usada pelo jogo -> SDK compat
+        (function () {
+            let database = null;
+            try {
+                if (typeof firebase === 'undefined') throw new Error('SDK do Firebase não carregou (sem internet?)');
+                if (/SUA_|SEU_/.test(JSON.stringify(window.firebaseConfigData)) && !window.__mockFirebase)
+                    throw new Error('Credenciais não preenchidas em firebaseConfigData (index.html)');
+                database = firebase.database(firebase.initializeApp(window.firebaseConfigData));
+                // Diferença entre o relógio local e o do servidor (prazo de resposta igual para todos)
+                database.ref('.info/serverTimeOffset').on('value', s => { window.serverTimeOffset = s.val() || 0; });
+            } catch (e) {
+                console.error('Erro ao inicializar Firebase:', e);
+                window.firebaseInitError = e.message;
+            }
+            window.firebaseConfig = {
+                database,
+                ref: (db, path) => db.ref(path),
+                onValue: (r, cb, opts) => {
+                    if (opts && opts.onlyOnce) { r.once('value', cb); return () => {}; }
+                    r.on('value', cb);
+                    return () => r.off('value', cb);
+                },
+                set: (r, v) => r.set(v),
+                push: (r, v) => r.push(v),
+                remove: (r) => r.remove(),
+                update: (r, v) => r.update(v),
+                off: (r) => r.off()
+            };
+        })();
+    </script>
+    <script src="game-logic.js"></script>
+    <script src="room-manager.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

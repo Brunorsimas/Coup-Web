@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 300 420" width="300" height="420">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a2e"/>
+      <stop offset="100%" style="stop-color:#0f3460"/>
+    </linearGradient>
+    <linearGradient id="pinkGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#e94ce9"/>
+      <stop offset="100%" style="stop-color:#d03ad0"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    
+    <!-- Crown icon as reusable symbol -->
+    <symbol id="crown-icon" viewBox="0 0 40 40">
+      <path d="M20,2 L24,14 L38,14 L26,22 L30,36 L20,28 L10,36 L14,22 L2,14 L16,14 Z" 
+            fill="url(#pinkGrad)" stroke="#fff" stroke-width="1"/>
+      <circle cx="20" cy="8" r="3" fill="#fff" opacity="0.8"/>
+      <circle cx="8" cy="16" r="2" fill="#fff" opacity="0.6"/>
+      <circle cx="32" cy="16" r="2" fill="#fff" opacity="0.6"/>
+    </symbol>
+    
+    <symbol id="shield-icon" viewBox="0 0 24 24">
+      <path d="M12,2 L22,8 v8 L12,22 L2,16 V8 Z" fill="url(#pinkGrad)" stroke="#fff" stroke-width="1"/>
+    </symbol>
+  </defs>
+  
+  <rect width="300" height="420" fill="url(#bgGrad)"/>
+  <rect x="10" y="10" width="280" height="400" fill="none" stroke="url(#pinkGrad)" stroke-width="3" rx="15"/>
+  <rect x="20" y="20" width="260" height="380" fill="none" stroke="#2a2a4a" stroke-width="1" rx="10"/>
+  
+  <g transform="translate(150, 60)">
+    <circle r="35" fill="url(#pinkGrad)" filter="url(#glow)"/>
+    <use href="#crown-icon" x="-20" y="-20" width="40" height="40"/>
+  </g>
+  
+  <text x="150" y="140" text-anchor="middle" font-family="Cinzel, Georgia, serif" font-size="28" font-weight="bold" fill="url(#pinkGrad)" letter-spacing="3">CONDESSA</text>
+  <text x="150" y="175" text-anchor="middle" font-family="Georgia, serif" font-size="14" fill="#b0b0b0" letter-spacing="1">LADY OF INTRIGUE</text>
+  
+  <g transform="translate(150, 195)" fill="url(#pinkGrad)">
+    <path d="M-60,0 L-20,0 M20,0 L60,0" stroke-width="2"/>
+    <circle r="4" cy="0"/>
+  </g>
+  
+  <g transform="translate(150, 280)">
+    <!-- Portrait silhouette with fan -->
+    <ellipse cx="0" cy="-10" rx="45" ry="60" fill="#16213e" stroke="url(#pinkGrad)" stroke-width="2" filter="url(#softGlow)"/>
+    
+    <!-- Face suggestion -->
+    <ellipse cx="0" cy="-30" rx="18" ry="22" fill="#1a1a2e" stroke="none"/>
+    <ellipse cx="-8" cy="-35" rx="4" ry="5" fill="url(#pinkGrad)" opacity="0.6"/>
+    <ellipse cx="8" cy="-35" rx="4" ry="5" fill="url(#pinkGrad)" opacity="0.6"/>
+    <path d="M-6,-20 Q0,-15 6,-20" fill="none" stroke="url(#pinkGrad)" stroke-width="1.5" opacity="0.5"/>
+    
+    <!-- Fan -->
+    <g transform="translate(35, 10) rotate(-30)" fill="url(#pinkGrad)" opacity="0.8" filter="url(#softGlow)">
+      <path d="M0,0 L-30,-40 L-25,-35 L-20,-30 L-15,-25 L-10,-20 L-5,-15 L0,-10 Z" stroke="url(#pinkGrad)" stroke-width="1.5">
+        <animateTransform attributeName="transform" type="rotate" values="-30;-20;-30" dur="3s" repeatCount="indefinite"/>
+      </path>
+      <path d="M0,0 L-28,-38" stroke="url(#pinkGrad)" stroke-width="1" opacity="0.5">
+        <animateTransform attributeName="transform" type="rotate" values="-30;-20;-30" dur="3s" repeatCount="indefinite"/>
+      </path>
+      <path d="M0,0 L-23,-33" stroke="url(#pinkGrad)" stroke-width="1" opacity="0.5">
+        <animateTransform attributeName="transform" type="rotate" values="-30;-20;-30" dur="3s" repeatCount="indefinite"/>
+      </path>
+      <path d="M0,0 L-18,-28" stroke="url(#pinkGrad)" stroke-width="1" opacity="0.5">
+        <animateTransform attributeName="transform" type="rotate" values="-30;-20;-30" dur="3s" repeatCount="indefinite"/>
+      </path>
+      <path d="M0,0 L-13,-23" stroke="url(#pinkGrad)" stroke-width="1" opacity="0.5">
+        <animateTransform attributeName="transform" type="rotate" values="-30;-20;-30" dur="3s" repeatCount="indefinite"/>
+      </path>
+      <path d="M0,0 L-8,-18" stroke="url(#pinkGrad)" stroke-width="1" opacity="0.5">
+        <animateTransform attributeName="transform" type="rotate" values="-30;-20;-30" dur="3s" repeatCount="indefinite"/>
+      </path>
+      <path d="M0,0 L-3,-13" stroke="url(#pinkGrad)" stroke-width="1" opacity="0.5">
+        <animateTransform attributeName="transform" type="rotate" values="-30;-20;-30" dur="3s" repeatCount="indefinite"/>
+      </path>
+    </g>
+    
+    <!-- Sparkles -->
+    <g fill="url(#pinkGrad)" filter="url(#glow)">
+      <circle cx="-60" cy="-50" r="3"><animate attributeName="opacity" values="1;0.3;1" dur="1.5s" repeatCount="indefinite"/></circle>
+      <circle cx="60" cy="-40" r="2"><animate attributeName="opacity" values="1;0.3;1" dur="1.5s" repeatCount="indefinite" begin="0.5s"/></circle>
+      <circle cx="-50" cy="30" r="3"><animate attributeName="opacity" values="1;0.3;1" dur="1.5s" repeatCount="indefinite" begin="1s"/></circle>
+      <circle cx="55" cy="20" r="2"><animate attributeName="opacity" values="1;0.3;1" dur="1.5s" repeatCount="indefinite" begin="1.5s"/></circle>
+    </g>
+  </g>
+  
+  <g transform="translate(150, 380)" fill="#e94ce9" font-family="Georgia, serif" font-size="11" text-anchor="middle">
+    <text x="-100" y="0"><use href="#shield-icon" xlink:href="#shield-icon" x="-12" y="-10" width="20" height="20"/> BLOQUEIA ASSASSINATO</text>
+    <text x="100" y="0"><use href="#crown-icon" xlink:href="#crown-icon" x="-12" y="-10" width="20" height="20"/> PROTECAO REAL</text>
+  </g>
+  
+  <g transform="translate(40, 380)" fill="url(#pinkGrad)" opacity="0.7">
+    <use href="#crown-icon" xlink:href="#crown-icon" x="-12" y="-12" width="24" height="24"/>
+  </g>
+  <g transform="translate(260, 380)" fill="url(#pinkGrad)" opacity="0.7">
+    <use href="#crown-icon" xlink:href="#crown-icon" x="-12" y="-12" width="24" height="24"/>
+  </g>
+</svg>
