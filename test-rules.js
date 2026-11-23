@@ -263,6 +263,58 @@ t('Reforma: Desvio contestado — com Duque perde, sem Duque o contestador perde
     G.processLoseInfluence(s, 'p1', 'captain');
     assert.strictEqual(s.players.p2.coins, 10); assert.strictEqual(s.treasury, 0);
 });
+// ===== Bugs graves =====
+const mk4 = () => {
+    const s = mk(['duke', 'captain'], ['captain'], 2, 2, {
+        p3: { id: 'p3', name: 'C', coins: 2, influences: ['assassin', 'countess'], alive: true, order: 2 },
+        p4: { id: 'p4', name: 'D', coins: 2, influences: ['ambassador', 'countess'], alive: true, order: 3 } });
+    return s;
+};
+t('#1 jogador da vez eliminado: vez vai ao seguinte, rodada não sobe', () => {
+    const s = mk4(); s.currentTurn = 'p2'; s.round = 1;
+    G.processTax(s, 'p2'); // blefe: p2 só tem Capitão
+    assert.ok(G.processChallenge(s, 'p1')); G.resolveChallenge(s);
+    G.processLoseInfluence(s, 'p2', 'captain');
+    assert.strictEqual(s.players.p2.alive, false);
+    assert.strictEqual(s.currentTurn, 'p3'); assert.strictEqual(s.round, 1);
+});
+t('#1 rodada sobe ao dar a volta na mesa', () => {
+    const s = mk4(); s.currentTurn = 'p4'; s.round = 1;
+    G.processIncome(s, 'p4');
+    assert.strictEqual(s.currentTurn, 'p1'); assert.strictEqual(s.round, 2);
+});
+t('#2 jogador que sai na própria vez: eliminado e vez passa', () => {
+    const s = mk4(); s.currentTurn = 'p2';
+    G.processTax(s, 'p2');
+    assert.ok(G.removePlayer(s, 'p2'));
+    assert.strictEqual(s.players.p2.alive, false); assert.deepStrictEqual(s.players.p2.lost, ['captain']);
+    assert.strictEqual(s.currentTurn, 'p3'); assert.strictEqual(s.phase, 'action');
+});
+t('#2 saída do devedor de carta: ação do vencedor segue', () => {
+    const s = mk4(); s.currentTurn = 'p1';
+    G.processTax(s, 'p1'); // p1 tem Duque
+    assert.ok(G.processChallenge(s, 'p3')); G.resolveChallenge(s);
+    assert.strictEqual(s.pendingLoss.playerId, 'p3');
+    G.removePlayer(s, 'p3');
+    assert.strictEqual(s.players.p1.coins, 5); assert.strictEqual(s.currentTurn, 'p2');
+});
+t('#2 saída do último adversário encerra o jogo', () => {
+    const s = mk(['duke'], ['captain'], 2, 2);
+    G.removePlayer(s, 'p2');
+    assert.strictEqual(s.phase, 'finished'); assert.strictEqual(s.winner, 'p1');
+});
+t('#4 jogada automática: Renda, ou Golpe com 10+', () => {
+    let s = mk4(); s.currentTurn = 'p1';
+    assert.ok(G.autoTurn(s)); assert.strictEqual(s.players.p1.coins, 3); assert.strictEqual(s.currentTurn, 'p2');
+    assert.ok(s.turnDeadline > Date.now());
+    s = mk4(); s.currentTurn = 'p1'; s.players.p1.coins = 10;
+    G.autoTurn(s); assert.strictEqual(s.players.p1.coins, 3); assert.strictEqual(s.phase, 'lose_influence');
+});
+t('#5 nome com HTML é limpo', () => {
+    assert.strictEqual(G.cleanName('<img src=x onerror=alert(1)>'), 'img src=x onerror=al');
+    const s = G.normalizeState({ players: { a: { name: '<b>Zé</b>' } } });
+    assert.strictEqual(s.players.a.name, 'bZé/b');
+});
 t('Turno pula eliminado', () => {
     const s = mk(['duke'], ['assassin'], 2, 2,
         { p3: { id: 'p3', name: 'C', coins: 2, influences: ['duke'], alive: true, order: 2 } });

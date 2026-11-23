@@ -42,6 +42,14 @@ function nowMs() {
     return Date.now() + ((typeof window !== 'undefined' && window.serverTimeOffset) || 0);
 }
 
+// Nome sem caracteres de HTML: impede injeção de código pelo nome (XSS)
+function cleanName(n) {
+    return String(n ?? '').replace(/[<>&"'`]/g, '').slice(0, 20) || '?';
+}
+
+// Tempo para escolher a ação na própria vez; esgotado, joga sozinho
+const TURN_MS = (typeof window !== 'undefined' && window.__TURN_MS) || 30000;
+
 // Firebase remove arrays/objetos vazios e nulls: restaura formato esperado
 function normalizeState(gs) {
     if (!gs) return gs;
@@ -50,6 +58,7 @@ function normalizeState(gs) {
     gs.houseRules = gs.houseRules || {};
     gs.passes = gs.passes || {};
     Object.values(gs.players || {}).forEach(p => {
+        p.name = cleanName(p.name);
         p.influences = p.influences || [];
         p.lost = p.lost || [];
     });
@@ -741,7 +750,11 @@ function processLoseInfluence(gameState, playerId, revealedChar) {
     gameState.pendingLoss = null;
     
     if (gameState.phase === 'finished') return;
+    continueAfterLoss(gameState);
+}
 
+// Após perder carta: aplica a ação de quem venceu a contestação, ou passa o turno
+function continueAfterLoss(gameState) {
     // Se o ator venceu a contestação, a ação original ainda precisa ser aplicada
     if (gameState.challengeWonByActor && gameState.pendingAction) {
         gameState.challengeWonByActor = false;
@@ -792,12 +805,15 @@ function nextTurn(gameState) {
         return;
     }
     
-    const currentIndex = alivePlayers.findIndex(p => p.id === gameState.currentTurn);
-    const nextIndex = (currentIndex + 1) % alivePlayers.length;
-    gameState.currentTurn = alivePlayers[nextIndex].id;
+    // Anda pela mesa inteira a partir do jogador da vez (ele pode ter acabado de ser eliminado)
+    const all = Object.values(gameState.players).sort((a, b) => a.order - b.order);
+    const cur = all.findIndex(p => p.id === gameState.currentTurn);
+    let i = cur;
+    do { i = (i + 1) % all.length; } while (!all[i].alive);
+    gameState.currentTurn = all[i].id;
     
-    // Incrementa rodada quando volta para o primeiro jogador (order 0)
-    if (nextIndex === 0) {
+    // Nova rodada quando a vez dá a volta na mesa
+    if (i <= cur) {
         gameState.round = (gameState.round || 1) + 1;
     }
     
@@ -810,8 +826,42 @@ function nextTurn(gameState) {
     gameState.challengeWonByActor = false;
     gameState.passes = {};
     gameState.deadline = null;
+    gameState.turnDeadline = nowMs() + TURN_MS;
     
     addLog(gameState, 'turn-start', `Vez de <span class="log-player">${gameState.players[gameState.currentTurn].name}</span> (Rodada ${gameState.round})`);
+}
+
+// Tempo da vez esgotado: Golpe obrigatório (10+) em alvo aleatório, senão Renda
+function autoTurn(gameState) {
+    const p = gameState.players[gameState.currentTurn];
+    if (gameState.phase !== 'action' || !p?.alive) return false;
+    addLog(gameState, 'result', `⏳ ${p.name} não jogou a tempo: jogada automática`);
+    const t = getValidTargets(gameState, p.id, ACTIONS.COUP);
+    if (p.coins >= 10 && t.length) processCoup(gameState, p.id, t[Math.floor(Math.random() * t.length)].id);
+    else processIncome(gameState, p.id);
+    return true;
+}
+
+// Jogador saiu/caiu: fica eliminado nesta partida (cartas viradas) e o jogo segue
+function removePlayer(gameState, playerId) {
+    const p = gameState.players[playerId];
+    if (!p?.alive || gameState.phase === 'finished') return false;
+    p.lost = [...(p.lost || []), ...p.influences];
+    p.influences = [];
+    p.alive = false;
+    p.left = true;
+    addLog(gameState, 'elimination', `🚪 ${p.name} saiu da partida e foi eliminado`);
+    checkGameEnd(gameState);
+    if (gameState.phase === 'finished') return true;
+    const a = gameState.pendingAction, c = gameState.pendingChallenge;
+    if (gameState.currentTurn === playerId || a?.targetId === playerId || gameState.pendingBlock?.blockerId === playerId ||
+        c?.challengerId === playerId || c?.targetId === playerId) {
+        nextTurn(gameState); // ação envolvendo quem saiu perde o sentido: segue para o próximo
+    } else if (gameState.pendingLoss?.playerId === playerId) {
+        gameState.pendingLoss = null;
+        continueAfterLoss(gameState);
+    }
+    return true;
 }
 
 // Verifica fim de jogo
@@ -982,6 +1032,10 @@ const GameLogic = {
     checkTimeout,
     getResponders,
     normalizeState,
+    cleanName,
+    autoTurn,
+    removePlayer,
+    TURN_MS,
     RESPONSE_MS,
     nowMs,
     applyPendingAction,

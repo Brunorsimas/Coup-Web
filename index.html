@@ -1,10 +1,10 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Coup - Jogo de Cartas</title>
-    <link rel="stylesheet" href="styles.css?v=9">
+    <link rel="stylesheet" href="styles.css?v=13">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Creepster&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
@@ -44,7 +44,7 @@
                                 <label class="house-rule-item">
                                     <input type="checkbox" name="houseRule" value="reformation">
                                     <span class="hr-label">Com a Reforma</span>
-                                    <span class="hr-desc">Facções Lealistas × Reformistas, Conversão e Desvio do Tesouro</span>
+                                    <span class="hr-desc">Facções Lealistas × Reformistas, Conversão e Desvio do Tesouro (3+ jogadores)</span>
                                 </label>
                             </div>
                         </fieldset>
@@ -77,6 +77,7 @@
                 <div class="room-info-top">
                     <span class="room-code-badge">Sala: <span id="current-room-code">--</span></span>
                     <span id="turn-indicator" class="turn-badge hidden">Sua vez</span>
+                    <span id="turn-timer" class="turn-timer hidden" aria-live="off"></span>
                 </div>
                 <div id="players-bar" class="players-bar"></div>
             </header>
@@ -114,7 +115,10 @@
                 <div id="game-log" class="game-log">
                     <div class="log-header">
                         <h3>Histórico</h3>
-                        <button id="clear-log" class="btn btn-ghost btn-small">Limpar</button>
+                        <span>
+                            <button id="toggle-log" class="btn btn-ghost btn-small" aria-expanded="true">Ocultar</button>
+                            <button id="clear-log" class="btn btn-ghost btn-small">Limpar</button>
+                        </span>
                     </div>
                     <div class="log-content" id="log-content"></div>
                 </div>
@@ -159,11 +163,15 @@
         <div id="modal-exchange" class="modal hidden">
             <div class="modal-content">
                 <h3>Troca de Influência (Embaixador)</h3>
-                <p>Suas cartas atuais:</p>
+                <ol class="exchange-steps">
+                    <li><strong>Sua mão:</strong> clique nas cartas que quer <em>trocar</em> (0, 1 ou todas). Elas ficam marcadas <strong>SAI</strong>.</li>
+                    <li><strong>Baralho:</strong> clique na mesma quantidade para <em>pegar</em>. Elas ficam marcadas <strong>ENTRA</strong>.</li>
+                </ol>
+                <p>1. Sua mão:</p>
                 <div class="exchange-hand" id="exchange-hand"></div>
-                <p>Cartas disponíveis do baralho:</p>
+                <p>2. Cartas do baralho:</p>
                 <div class="deck-cards" id="deck-cards"></div>
-                <p>Selecione as cartas para manter (mesma quantidade que você tinha)</p>
+                <p id="exchange-status" class="exchange-status" aria-live="polite"></p>
                 <button id="btn-confirm-exchange" class="btn btn-primary hidden">Confirmar Troca</button>
             </div>
         </div>
@@ -323,12 +331,13 @@
                 remove: (r) => r.remove(),
                 update: (r, v) => r.update(v),
                 transaction: (r, fn) => r.transaction(fn).then(res => res.committed),
+                onDisconnectRemove: (r) => r.onDisconnect().remove(),
                 off: (r) => r.off()
             };
         })();
     </script>
-    <script src="game-logic.js?v=9"></script>
-    <script src="room-manager.js?v=9"></script>
-    <script src="app.js?v=9"></script>
+    <script src="game-logic.js?v=13"></script>
+    <script src="room-manager.js?v=13"></script>
+    <script src="app.js?v=13"></script>
 </body>
 </html>

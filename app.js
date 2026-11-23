@@ -42,6 +42,16 @@ function setupEventListeners() {
     document.getElementById('btn-play-again').addEventListener('click', () => RoomManager.restartRoom().catch(e => alert(e.message)));
     document.getElementById('btn-back-lobby').addEventListener('click', handleBackToLobby);
     document.getElementById('clear-log').addEventListener('click', clearLog);
+    // Ocultar/mostrar histórico (lembra a escolha no navegador)
+    const logBox = document.getElementById('game-log'), logBtn = document.getElementById('toggle-log');
+    const setLog = hidden => {
+        logBox.classList.toggle('collapsed', hidden);
+        logBtn.textContent = hidden ? 'Mostrar' : 'Ocultar';
+        logBtn.setAttribute('aria-expanded', String(!hidden));
+        localStorage.setItem('coupLogHidden', hidden ? '1' : '');
+    };
+    setLog(!!localStorage.getItem('coupLogHidden'));
+    logBtn.addEventListener('click', () => setLog(!logBox.classList.contains('collapsed')));
     
     // Regras
     document.getElementById('btn-rules').addEventListener('click', toggleRules);
@@ -178,6 +188,9 @@ function getPlayers(room) {
 
 function handleRoomUpdate(room) {
     GameLogic.normalizeState(room.gameState);
+    Object.values(room.players || {}).forEach(p => p.name = GameLogic.cleanName(p.name));
+    room.creatorName = GameLogic.cleanName(room.creatorName);
+    if (handlePresence(room)) return;
     roomData = room;
     myPlayerData = getPlayers(room)[RoomManager.getCurrentPlayerId()];
     
@@ -200,6 +213,28 @@ function handleRoomUpdate(room) {
     } else if (room.status === 'finished') {
         showEndScreen(room);
     }
+}
+
+// Saída/queda de jogador: quem some de room.players é eliminado da partida atual.
+// Pode voltar pelo código quando a sala estiver em espera (próxima partida).
+function handlePresence(room) {
+    const me = RoomManager.getCurrentPlayerId();
+    if (!room.players?.[me]) {
+        if (currentScreen === 'lobby') return true; // já tratado (atualizações atrasadas)
+        closeAllModals();
+        handleBackToLobby();
+        alert('Você saiu ou perdeu a conexão e foi removido da sala. Entre de novo pelo código quando a próxima partida for aberta.');
+        return true;
+    }
+    // Dono caiu: o próximo da mesa assume
+    const present = Object.values(room.players).sort((a, b) => a.order - b.order);
+    if (!room.players[room.creator] && present[0].id === me) RoomManager.claimOwnership();
+    const gs = room.gameState;
+    if (room.status === 'playing' && gs && gs.phase !== 'finished') {
+        const gone = Object.values(gs.players).filter(p => p.alive && !room.players[p.id]).map(p => p.id);
+        if (gone.length) RoomManager.mutateGame(cur => gone.map(id => GameLogic.removePlayer(cur, id)).some(Boolean));
+    }
+    return false;
 }
 
 function updateGameWaiting(room) {
@@ -543,7 +578,7 @@ function updateGameLog(room) {
     sortedLogs.forEach(([id, log]) => {
         const div = document.createElement('div');
         div.className = `log-entry ${log.type}`;
-        div.innerHTML = log.message;
+        div.innerHTML = String(log.message).replace(/<(?!\/?(span|strong|em)(\s+class="[\w -]*")?>)[^>]*>?/gi, '');
         content.appendChild(div);
     });
     
@@ -714,6 +749,7 @@ function handleExchangePhase(gameState) {
     
     player.influences.forEach((char, index) => {
         const card = createExchangeCard(char, index, 'hand');
+        card.classList.add('selected'); // começa mantida; clicar = trocar (0, 1 ou 2 cartas)
         handDiv.appendChild(card);
     });
     
@@ -722,7 +758,9 @@ function handleExchangePhase(gameState) {
         deckDiv.appendChild(card);
     });
     
+    modal.querySelector('h3').textContent = `Troca de Influência (${gameState.pendingAction?.type === 'inq_exchange' ? 'Inquisidor' : 'Embaixador'})`;
     showModal(modal);
+    updateExchangeConfirm();
 }
 
 function createExchangeCard(character, index, source) {
@@ -752,6 +790,14 @@ function updateExchangeConfirm() {
     const selected = document.querySelectorAll('.exchange-card.selected, .deck-card.selected');
     const btn = document.getElementById('btn-confirm-exchange');
     btn.classList.toggle('hidden', selected.length !== exchangeKeepCount());
+    const swaps = document.querySelectorAll('.exchange-card:not(.selected)').length;
+    btn.textContent = swaps ? `Confirmar Troca (${swaps} carta${swaps > 1 ? 's' : ''})` : 'Manter Mão';
+    // Guia passo a passo: quantas saem x quantas entram
+    const ins = document.querySelectorAll('.deck-card.selected').length, st = document.getElementById('exchange-status');
+    st.textContent = ins > swaps ? `Você escolheu ${ins} do baralho mas só liberou ${swaps} da mão: desmarque uma da sua mão primeiro.`
+        : ins < swaps ? `Escolha mais ${swaps - ins} carta(s) do baralho para entrar no lugar.`
+        : swaps ? `Pronto: ${swaps} sai(em), ${ins} entra(m).` : 'Nenhuma troca: você mantém sua mão. Clique numa carta sua para trocá-la.';
+    st.classList.toggle('ok', ins === swaps);
 }
 
 function handleConfirmExchange() {
@@ -963,6 +1009,19 @@ function tickResponseTimer() {
                 if (cur.phase !== 'lose_influence' || id !== gs.pendingLoss.playerId || !cur.players[id].influences.length) return false;
                 GameLogic.processLoseInfluence(cur, id, cur.players[id].influences[0]);
             });
+        }
+    }
+    // Tempo da vez: contador para todos; esgotado, qualquer cliente faz a jogada automática
+    const tt = document.getElementById('turn-timer');
+    const turnLeft = gs?.phase === 'action' && gs.turnDeadline ? Math.ceil((gs.turnDeadline - GameLogic.nowMs()) / 1000) : null;
+    tt.classList.toggle('hidden', turnLeft === null || currentScreen !== 'game');
+    if (turnLeft !== null) {
+        const mine = gs.currentTurn === RoomManager.getCurrentPlayerId();
+        tt.textContent = `⏳ ${Math.max(0, turnLeft)}s ${mine ? 'para jogar' : 'para ' + (gs.players[gs.currentTurn]?.name || '')}`;
+        tt.classList.toggle('urgent', turnLeft <= 10);
+        if (turnLeft <= 0) {
+            const td = gs.turnDeadline;
+            RoomManager.mutateGame(cur => cur.turnDeadline === td && GameLogic.autoTurn(cur));
         }
     }
     const el = document.getElementById('response-countdown');

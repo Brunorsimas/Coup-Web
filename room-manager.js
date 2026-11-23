@@ -24,6 +24,7 @@ function initFirebase(config) {
         remove: config.remove,
         update: config.update,
         transaction: config.transaction,
+        onDisconnectRemove: config.onDisconnectRemove,
         off: config.off
     };
 }
@@ -83,14 +84,14 @@ async function createRoom(creatorName, maxPlayers) {
     const roomData = {
         code: roomCode,
         creator: creatorId,
-        creatorName: creatorName,
+        creatorName: GameLogic.cleanName(creatorName),
         maxPlayers: parseInt(maxPlayers),
         status: 'waiting',
         createdAt: Date.now(),
         players: {
             [creatorId]: {
                 id: creatorId,
-                name: creatorName,
+                name: GameLogic.cleanName(creatorName),
                 coins: 2,
                 influences: [],
                 alive: true,
@@ -105,6 +106,7 @@ async function createRoom(creatorName, maxPlayers) {
     
     const roomRef = firebaseRefs.ref(firebaseDb, `rooms/${roomId}`);
     await firebaseRefs.set(roomRef, roomData);
+    watchDisconnect();
     
     subscribeToRoom(roomId);
     
@@ -159,7 +161,7 @@ async function joinRoom(playerName, roomCode) {
     const playerRef = firebaseRefs.ref(firebaseDb, `rooms/${foundRoomId}/players/${playerId}`);
     await firebaseRefs.set(playerRef, {
         id: playerId,
-        name: playerName,
+        name: GameLogic.cleanName(playerName),
         coins: 2,
         influences: [],
         alive: true,
@@ -167,10 +169,16 @@ async function joinRoom(playerName, roomCode) {
         ready: false,
         isCreator: false
     });
+    watchDisconnect();
     
     subscribeToRoom(foundRoomId);
     
     return { roomId: foundRoomId, roomCode: foundRoom.code, playerId };
+}
+
+// Conexão caiu/aba fechada: o servidor tira o jogador da sala; os outros clientes o eliminam da partida
+function watchDisconnect() {
+    firebaseRefs.onDisconnectRemove?.(firebaseRefs.ref(firebaseDb, `rooms/${currentRoomId}/players/${currentPlayerId}`));
 }
 
 // Inscreve nas atualizações da sala
@@ -206,6 +214,9 @@ async function startGame(houseRules = {}) {
     if (players.length < 2) {
         throw new Error('Mínimo 2 jogadores para iniciar.');
     }
+    if (houseRules.reformation && players.length < 3) {
+        throw new Error('A Reforma precisa de 3 ou mais jogadores: com 2, cada um ficaria numa facção e nenhum poderia atacar o outro. Desmarque "Com a Reforma" ou espere mais jogadores.');
+    }
     
     // Regra oficial: vencedor da partida anterior começa (se ainda estiver na sala); senão, o dono
     players.sort((a, b) => a.order - b.order);
@@ -237,6 +248,7 @@ async function startGame(houseRules = {}) {
         treasury: 0,
         currentTurn: players[0].id,
         players: gamePlayers,
+        turnDeadline: GameLogic.nowMs() + GameLogic.TURN_MS,
         deck: deck,
         discardPile: [],
         pendingAction: null,
@@ -345,6 +357,12 @@ async function pushLog(logEntry) {
     await firebaseRefs.set(logRef, logEntry);
 }
 
+// Dono caiu: o jogador presente com menor ordem assume a sala
+async function claimOwnership() {
+    await firebaseRefs.update(firebaseRefs.ref(firebaseDb, `rooms/${currentRoomId}`),
+        { creator: currentPlayerId, creatorName: currentPlayerName, [`players/${currentPlayerId}/isCreator`]: true });
+}
+
 // Sai da sala
 async function leaveRoom() {
     if (roomUnsubscribe) {
@@ -408,6 +426,7 @@ const RoomManager = {
     updatePlayer,
     addLog: pushLog,
     leaveRoom,
+    claimOwnership,
     getCurrentRoomId,
     getCurrentPlayerId,
     getCurrentPlayerName,

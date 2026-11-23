@@ -1677,14 +1677,17 @@ body {
 .hand-card, .character-card { cursor: pointer; }
 
 
-/* Residência da corte (arte do tema) */
+/* Residência da corte (arte do tema): proporção fixa 4:1 = arte inteira, sem corte */
 .residence-banner {
     position: relative;
-    height: 110px;
+    flex-shrink: 0;
+    width: 100%;
+    max-width: 800px;
+    margin: 0 auto;
+    aspect-ratio: 4 / 1;
     border-radius: 12px;
-    background: url('assets/residencia.svg') center bottom / cover no-repeat;
+    background: #0b0d1a url('assets/residencia.svg') center / 100% 100% no-repeat;
     border: 1px solid rgba(212, 175, 55, 0.35);
-    margin-bottom: 0.75rem;
 }
 .treasury-badge {
     position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
@@ -1695,5 +1698,20 @@ body {
 .faction-tag { font-size: 0.7rem; padding: 0 0.35rem; border-radius: 6px; white-space: nowrap; }
 .faction-tag.loyalist { background: #8b1a1a; color: #f5e6b8; }
 .faction-tag.reformist { background: #1a3a8b; color: #f5e6b8; }
-@media (max-width: 480px) { .residence-banner { height: 70px; } }
+/* Histórico recolhido: só o cabeçalho */
+.game-log.collapsed { flex: 0 0 auto; min-height: 0; }
+.game-log.collapsed .log-content { display: none; }
 
+/* Troca: rótulos claros SAI/FICA/ENTRA */
+.exchange-steps { text-align: left; font-size: 0.85rem; margin: 0.5rem 0 0 1.2rem; }
+.exchange-card::after, .deck-card.selected::after { position: absolute; bottom: -10px; left: 50%; transform: translateX(-50%); font-size: 0.7rem; font-weight: 700; padding: 0 0.4rem; border-radius: 6px; }
+.exchange-card.selected::after { content: 'FICA'; background: var(--accent-blue); color: #fff; }
+.exchange-card:not(.selected) { opacity: 0.55; border-color: #c0392b; }
+.exchange-card:not(.selected)::after { content: 'SAI'; background: #c0392b; color: #fff; }
+.deck-card.selected::after { content: 'ENTRA'; background: #27ae60; color: #fff; }
+.exchange-status { font-weight: 600; color: #f0b429; min-height: 1.4em; }
+.exchange-status.ok { color: #2ecc71; }
+
+/* Tempo da vez */
+.turn-timer { font-size: 0.85rem; padding: 0.15rem 0.6rem; border-radius: 999px; background: rgba(0,0,0,0.4); border: 1px solid var(--border-color); white-space: nowrap; }
+.turn-timer.urgent { color: #fff; background: #c0392b; border-color: #c0392b; }
