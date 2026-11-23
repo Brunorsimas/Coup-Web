@@ -23,6 +23,7 @@ function initFirebase(config) {
         push: config.push,
         remove: config.remove,
         update: config.update,
+        transaction: config.transaction,
         off: config.off
     };
 }
@@ -276,6 +277,40 @@ async function updateGameState(gameState) {
     await firebaseRefs.set(roomRef, gameState);
 }
 
+// Altera o estado de forma atômica (transação): aplica fn sobre o estado ATUAL do servidor.
+// Evita que um clique sobre estado desatualizado (ex.: contestar depois do prazo) sobrescreva a jogada de outro.
+// fn retorna false para abortar (jogada inválida no estado atual).
+function mutateGame(fn) {
+    if (!currentRoomId) return Promise.resolve(false);
+    return firebaseRefs.transaction(firebaseRefs.ref(firebaseDb, `rooms/${currentRoomId}/gameState`), cur => {
+        if (!cur) return cur; // cache vazio: Firebase repete com o valor do servidor
+        GameLogic.normalizeState(cur);
+        return fn(cur) === false ? undefined : cur;
+    });
+}
+
+// Dono reinicia a partida na mesma sala: volta à espera, permite novos jogadores
+async function restartRoom(maxPlayers) {
+    const room = (await readOnce(`rooms/${currentRoomId}`)).val();
+    if (!room || room.creator !== currentPlayerId) throw new Error('Apenas o dono da sala pode reiniciar.');
+    const players = {};
+    Object.values(room.players || {}).sort((a, b) => a.order - b.order).forEach((p, i) => {
+        players[p.id] = { id: p.id, name: p.name, coins: 2, influences: [], alive: true, order: i, ready: false, isCreator: p.id === room.creator };
+    });
+    await firebaseRefs.update(firebaseRefs.ref(firebaseDb, `rooms/${currentRoomId}`), {
+        status: 'waiting', gameState: null, players,
+        maxPlayers: Math.max(maxPlayers || room.maxPlayers, Object.keys(players).length)
+    });
+}
+
+// Dono ajusta o limite de jogadores na espera (nunca abaixo dos presentes)
+async function setMaxPlayers(n) {
+    const room = (await readOnce(`rooms/${currentRoomId}`)).val();
+    if (!room || room.creator !== currentPlayerId || room.status !== 'waiting') return;
+    const count = Object.keys(room.players || {}).length;
+    await firebaseRefs.set(firebaseRefs.ref(firebaseDb, `rooms/${currentRoomId}/maxPlayers`), Math.min(6, Math.max(2, count, n)));
+}
+
 // Registra "Permitir" sem sobrescrever o estado de outros clientes
 async function setPass(playerId) {
     if (!currentRoomId) return;
@@ -309,6 +344,17 @@ async function leaveRoom() {
     
     if (currentRoomId && currentPlayerId) {
         try {
+            // Dono saindo: passa a sala para o próximo jogador (por ordem de entrada)
+            const room = (await readOnce(`rooms/${currentRoomId}`)).val();
+            if (room && room.creator === currentPlayerId) {
+                const next = Object.values(room.players || {}).filter(p => p.id !== currentPlayerId).sort((a, b) => a.order - b.order)[0];
+                const roomRef = firebaseRefs.ref(firebaseDb, `rooms/${currentRoomId}`);
+                if (next) {
+                    await firebaseRefs.update(roomRef, { creator: next.id, creatorName: next.name, [`players/${next.id}/isCreator`]: true });
+                } else {
+                    await firebaseRefs.remove(roomRef); // último a sair: apaga a sala
+                }
+            }
             const playerRef = firebaseRefs.ref(firebaseDb, `rooms/${currentRoomId}/players/${currentPlayerId}`);
             await firebaseRefs.remove(playerRef);
         } catch (e) {
@@ -345,6 +391,9 @@ const RoomManager = {
     joinRoom,
     startGame,
     updateGameState,
+    mutateGame,
+    restartRoom,
+    setMaxPlayers,
     setPass,
     updatePlayer,
     addLog: pushLog,

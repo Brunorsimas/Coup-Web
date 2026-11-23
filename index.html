@@ -156,8 +156,10 @@
                 <h1 class="end-title">FIM DE JOGO</h1>
                 <div id="winner-display" class="winner-display"></div>
                 <div id="final-ranking" class="final-ranking"></div>
-                <button id="btn-new-game" class="btn btn-primary btn-large">Nova Partida</button>
-                <button id="btn-back-lobby" class="btn btn-secondary btn-large">Voltar ao Lobby</button>
+                <button id="btn-play-again" class="btn btn-primary btn-large hidden">🔄 Jogar Novamente (mesma sala)</button>
+                <p id="wait-owner" class="hidden" style="color:var(--text-muted)">Aguardando o dono da sala reiniciar a partida...</p>
+                <button id="btn-new-game" class="btn btn-secondary btn-large">Criar Outra Sala</button>
+                <button id="btn-back-lobby" class="btn btn-secondary btn-large">Sair da Sala</button>
             </div>
         </div>
 
@@ -351,6 +353,7 @@
                 push: (r, v) => r.push(v),
                 remove: (r) => r.remove(),
                 update: (r, v) => r.update(v),
+                transaction: (r, fn) => r.transaction(fn).then(res => res.committed),
                 off: (r) => r.off()
             };
         })();

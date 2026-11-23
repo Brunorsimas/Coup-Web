@@ -41,6 +41,7 @@ function setupEventListeners() {
     document.getElementById('copy-code').addEventListener('click', copyRoomCode);
     document.getElementById('start-game').addEventListener('click', handleStartGame);
     document.getElementById('btn-new-game').addEventListener('click', handleNewGame);
+    document.getElementById('btn-play-again').addEventListener('click', () => RoomManager.restartRoom().catch(e => alert(e.message)));
     document.getElementById('btn-back-lobby').addEventListener('click', handleBackToLobby);
     document.getElementById('clear-log').addEventListener('click', clearLog);
     
@@ -198,7 +199,8 @@ function handleRoomUpdate(room) {
     
     if (room.status === 'waiting') {
         // Se estiver na tela de lobby, ir para a tela de jogo (mesa)
-        if (currentScreen === 'lobby') {
+        if (currentScreen !== 'game') {
+            closeAllModals();
             showScreen('game');
         }
         updateGameWaiting(room);
@@ -258,6 +260,24 @@ function updateGameWaiting(room) {
         startBtn.classList.toggle('hidden', !isCreator);
         startBtn.disabled = (Object.values(getPlayers(room)).length < 2);
     }
+
+    // Dono ajusta o limite de jogadores sem recriar a sala
+    let maxSel = document.getElementById('max-players-select');
+    if (isCreator && !maxSel) {
+        maxSel = document.createElement('select');
+        maxSel.id = 'max-players-select';
+        maxSel.title = 'Máximo de jogadores';
+        maxSel.setAttribute('aria-label', 'Máximo de jogadores');
+        maxSel.innerHTML = [2, 3, 4, 5, 6].map(n => `<option value="${n}">${n} jogadores</option>`).join('');
+        maxSel.addEventListener('change', () => RoomManager.setMaxPlayers(+maxSel.value));
+        document.querySelector('.room-info-top').appendChild(maxSel);
+    }
+    if (maxSel) {
+        maxSel.classList.toggle('hidden', !isCreator);
+        const count = Object.keys(getPlayers(room)).length;
+        [...maxSel.options].forEach(o => o.disabled = +o.value < count);
+        maxSel.value = room.maxPlayers;
+    }
     
     // Mostrar jogadores na área de oponentes
     const opponentsArea = document.getElementById('opponents-area');
@@ -299,6 +319,7 @@ function updateGameWaiting(room) {
 }
 
 function updateGameUI(room) {
+    ['start-game-btn', 'max-players-select'].forEach(id => document.getElementById(id)?.classList.add('hidden'));
     updateHeader(room);
     updateOpponents(room);
     updatePlayerHand(room);
@@ -577,9 +598,15 @@ function highlightValidTargets(highlight) {
 }
 
 function executeAction(actionId, targetId) {
-    const gameState = roomData.gameState;
     const playerId = RoomManager.getCurrentPlayerId();
-    
+    RoomManager.mutateGame(gs => {
+        if (gs.phase !== 'action' || gs.currentTurn !== playerId) return false;
+        runAction(gs, playerId, actionId, targetId);
+        return true;
+    });
+}
+
+function runAction(gameState, playerId, actionId, targetId) {
     switch (actionId) {
         case GameLogic.ACTIONS.INCOME:
             GameLogic.processIncome(gameState, playerId);
@@ -609,8 +636,6 @@ function executeAction(actionId, targetId) {
             GameLogic.processExamine(gameState, playerId, targetId);
             break;
     }
-    
-    RoomManager.updateGameState(gameState);
 }
 
 // ========================================
@@ -654,9 +679,9 @@ function showLoseInfluenceModal() {
 }
 
 function loseCard(character) {
-    const gameState = roomData.gameState;
-    GameLogic.processLoseInfluence(gameState, RoomManager.getCurrentPlayerId(), character);
-    RoomManager.updateGameState(gameState);
+    const me = RoomManager.getCurrentPlayerId();
+    RoomManager.mutateGame(gs => gs.phase === 'lose_influence' && gs.pendingLoss?.playerId === me &&
+        gs.players[me].influences.includes(character) && (GameLogic.processLoseInfluence(gs, me, character), true));
     closeAllModals();
 }
 
@@ -722,11 +747,9 @@ function handleConfirmExchange() {
     if (selected.length !== exchangeKeepCount()) return;
     
     const keptCards = Array.from(selected).map(c => c.dataset.character);
-    const gameState = roomData.gameState;
     const playerId = RoomManager.getCurrentPlayerId();
-    
-    GameLogic.processExchangeComplete(gameState, playerId, keptCards);
-    RoomManager.updateGameState(gameState);
+    RoomManager.mutateGame(gs => gs.phase === 'exchange' && gs.currentTurn === playerId &&
+        (GameLogic.processExchangeComplete(gs, playerId, keptCards), true));
     
     closeAllModals();
 }
@@ -791,8 +814,7 @@ function checkForChallenges(room) {
 
     // Resolve contestação: apenas o jogador da vez executa para evitar escritas duplicadas
     if (phase === 'resolve_challenge' && isMyTurn) {
-        GameLogic.resolveChallenge(gameState);
-        RoomManager.updateGameState(gameState);
+        RoomManager.mutateGame(gs => gs.phase === 'resolve_challenge' && (GameLogic.resolveChallenge(gs), true));
         return;
     }
 
@@ -834,21 +856,21 @@ function showResponseModal(titleText, html, buttons) {
 function showExamineModal(gameState, phase) {
     const action = gameState.pendingAction;
     const target = gameState.players[action.targetId];
-    const send = fn => () => { fn(); RoomManager.updateGameState(gameState); closeAllModals(); };
+    const send = fn => () => { RoomManager.mutateGame(gs => fn(gs)); closeAllModals(); };
     let title, html, buttons;
     if (phase === 'examine_show') {
         title = 'Investigação';
         html = `${gameState.players[action.playerId].name} (Inquisidor) quer ver uma carta sua. Escolha qual mostrar:`;
         buttons = [...new Set(target.influences)].map(ch => ({
             label: GameLogic.CHARACTER_LABELS[ch], cls: 'btn-secondary',
-            fn: send(() => GameLogic.processExamineShow(gameState, target.id, ch))
+            fn: send(gs => GameLogic.processExamineShow(gs, target.id, ch))
         }));
     } else {
         title = 'Investigação';
         html = `${target.name} mostrou: <strong>${GameLogic.CHARACTER_LABELS[gameState.examinedCard]}</strong>`;
         buttons = [
-            { label: 'Devolver', cls: 'btn-primary', fn: send(() => GameLogic.processExamineDecide(gameState, action.playerId, false)) },
-            { label: 'Forçar troca', cls: 'btn-danger', fn: send(() => GameLogic.processExamineDecide(gameState, action.playerId, true)) }
+            { label: 'Devolver', cls: 'btn-primary', fn: send(gs => GameLogic.processExamineDecide(gs, action.playerId, false)) },
+            { label: 'Forçar troca', cls: 'btn-danger', fn: send(gs => GameLogic.processExamineDecide(gs, action.playerId, true)) }
         ];
     }
     showResponseModal(title, html, buttons);
@@ -886,23 +908,31 @@ function showBlockResponseModal(block) {
         ]);
 }
 
+// Contestar/Bloquear via transação: valida contra o estado atual do servidor
+// (antes, dois cliques simultâneos ou um clique após o prazo sobrescreviam a jogada do outro)
 function respondChallenge() {
-    const gameState = roomData.gameState;
-    GameLogic.processChallenge(gameState, RoomManager.getCurrentPlayerId());
-    RoomManager.updateGameState(gameState);
+    const me = RoomManager.getCurrentPlayerId();
+    RoomManager.mutateGame(gs => !gs.passes?.[me] && GameLogic.processChallenge(gs, me))
+        .then(ok => { if (!ok) addLocalLog('Contestação não aceita: a janela já fechou ou outro jogador respondeu antes.'); });
     closeAllModals();
 }
 
 function respondBlock(character) {
-    const gameState = roomData.gameState;
-    GameLogic.processBlock(gameState, RoomManager.getCurrentPlayerId(), character);
-    RoomManager.updateGameState(gameState);
+    const me = RoomManager.getCurrentPlayerId();
+    RoomManager.mutateGame(gs => !gs.passes?.[me] && GameLogic.processBlock(gs, me, character))
+        .then(ok => { if (!ok) addLocalLog('Bloqueio não aceito: a janela já fechou ou outro jogador respondeu antes.'); });
     closeAllModals();
 }
 
 // Permitir: grava só o próprio voto (evita sobrescrever votos simultâneos)
+// Vinculado ao prazo da janela: um "Permitir" atrasado não vale para a janela seguinte
 function respondPass() {
-    RoomManager.setPass(RoomManager.getCurrentPlayerId());
+    const me = RoomManager.getCurrentPlayerId(), deadline = roomData?.gameState?.deadline;
+    RoomManager.mutateGame(gs => {
+        if (gs.deadline !== deadline || !GameLogic.getResponders(gs).includes(me)) return false;
+        gs.passes = { ...gs.passes, [me]: true };
+        return true;
+    });
     closeAllModals();
 }
 
@@ -915,11 +945,12 @@ function tickResponseTimer() {
 
     if (gs.currentTurn !== RoomManager.getCurrentPlayerId()) return;
     if (!['challenge_block', 'challenge_block_response'].includes(gs.phase)) return;
-    if (GameLogic.allPassed(gs)) {
-        GameLogic.resolveUncontested(gs);
-        RoomManager.updateGameState(gs);
-    } else if (GameLogic.checkTimeout(gs)) {
-        RoomManager.updateGameState(gs);
+    if (GameLogic.allPassed(gs) || GameLogic.nowMs() >= gs.deadline) {
+        RoomManager.mutateGame(cur => {
+            if (cur.deadline !== gs.deadline) return false; // estado mudou: outra resposta chegou
+            if (GameLogic.allPassed(cur)) { GameLogic.resolveUncontested(cur); return true; }
+            return GameLogic.checkTimeout(cur);
+        });
     }
 }
 
@@ -928,7 +959,11 @@ function tickResponseTimer() {
 // ========================================
 
 function showEndScreen(room) {
+    if (currentScreen !== 'end') closeAllModals();
     showScreen('end');
+    const owner = RoomManager.isCreator(room);
+    document.getElementById('btn-play-again').classList.toggle('hidden', !owner);
+    document.getElementById('wait-owner').classList.toggle('hidden', owner);
     
     const gameState = room.gameState;
     const winner = getPlayers(room)[gameState.winner];
@@ -1035,6 +1070,7 @@ function resetGameUI() {
     // Remover elementos criados dinamicamente
     const startBtn = document.getElementById('start-game-btn');
     if (startBtn) startBtn.remove();
+    document.getElementById('max-players-select')?.remove();
     
     const copyBtn = document.getElementById('copy-room-code-btn');
     if (copyBtn) copyBtn.remove();
