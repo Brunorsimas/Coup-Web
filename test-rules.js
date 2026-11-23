@@ -213,6 +213,19 @@ t('Qualquer jogador pode contestar um bloqueio', () => {
     G.processLoseInfluence(s, 'p2', 'assassin');
     assert.strictEqual(s.players.p1.coins, 4);
 });
+t('Bloqueio verdadeiro (Duque) contestado: contestador perde e a vez passa', () => {
+    for (const who of ['p1', 'p3']) {
+        const s = mk(['captain', 'assassin'], ['duke', 'countess'], 2, 2,
+            { p3: { id: 'p3', name: 'C', coins: 2, influences: ['captain', 'ambassador'], alive: true, order: 2 } });
+        G.processForeignAid(s, 'p1'); G.processBlock(s, 'p2', 'duke');
+        assert.ok(G.processChallenge(s, who)); G.resolveChallenge(s);
+        assert.strictEqual(s.pendingLoss.playerId, who);
+        G.processLoseInfluence(s, who, 'captain');
+        assert.strictEqual(s.phase, 'action'); assert.strictEqual(s.currentTurn, 'p2');
+        assert.strictEqual(s.players.p1.coins, 2, 'ajuda bloqueada');
+        assert.strictEqual(s.players.p2.influences.length, 2, 'Duque trocado por outra carta');
+    }
+});
 t('Turno pula eliminado', () => {
     const s = mk(['duke'], ['assassin'], 2, 2,
         { p3: { id: 'p3', name: 'C', coins: 2, influences: ['duke'], alive: true, order: 2 } });

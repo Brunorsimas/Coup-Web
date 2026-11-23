@@ -205,6 +205,7 @@ function handleRoomUpdate(room) {
         }
         updateGameWaiting(room);
     } else if (room.status === 'playing') {
+        if (!room.gameState) return; // estado ainda chegando
         // Jogo terminou: gameState.phase vira 'finished' mas room.status continua 'playing'
         if (room.gameState?.phase === 'finished' && room.gameState?.winner) {
             showEndScreen(room);
@@ -812,11 +813,6 @@ function checkForChallenges(room) {
         return;
     }
 
-    // Resolve contestação: apenas o jogador da vez executa para evitar escritas duplicadas
-    if (phase === 'resolve_challenge' && isMyTurn) {
-        RoomManager.mutateGame(gs => gs.phase === 'resolve_challenge' && (GameLogic.resolveChallenge(gs), true));
-        return;
-    }
 
     // Perda de influência: quem perde escolhe a carta
     if (phase === 'lose_influence' && gameState.pendingLoss?.playerId === playerId) {
@@ -912,7 +908,8 @@ function showBlockResponseModal(block) {
 // (antes, dois cliques simultâneos ou um clique após o prazo sobrescreviam a jogada do outro)
 function respondChallenge() {
     const me = RoomManager.getCurrentPlayerId();
-    RoomManager.mutateGame(gs => !gs.passes?.[me] && GameLogic.processChallenge(gs, me))
+    // Contesta e resolve na mesma transação: não depende de outro cliente para revelar a carta
+    RoomManager.mutateGame(gs => !gs.passes?.[me] && GameLogic.processChallenge(gs, me) && (GameLogic.resolveChallenge(gs), true))
         .then(ok => { if (!ok) addLocalLog('Contestação não aceita: a janela já fechou ou outro jogador respondeu antes.'); });
     closeAllModals();
 }
@@ -939,11 +936,18 @@ function respondPass() {
 // A cada segundo: atualiza contagem; o jogador da vez resolve quando todos permitiram ou o prazo expira
 function tickResponseTimer() {
     const gs = roomData?.gameState;
+    // Rede de segurança: contestação pendente (versão antiga/evento perdido) é resolvida por qualquer cliente
+    if (gs?.phase === 'resolve_challenge') {
+        RoomManager.mutateGame(cur => cur.phase === 'resolve_challenge' && (GameLogic.resolveChallenge(cur), true));
+        return;
+    }
     const el = document.getElementById('response-countdown');
     if (!gs || !gs.deadline) return;
     if (el) el.textContent = Math.max(0, Math.ceil((gs.deadline - GameLogic.nowMs()) / 1000));
 
-    if (gs.currentTurn !== RoomManager.getCurrentPlayerId()) return;
+    // Jogador da vez resolve; se ele estiver offline/celular em segundo plano, qualquer um resolve após 3s
+    const late = GameLogic.nowMs() >= gs.deadline + 3000;
+    if (gs.currentTurn !== RoomManager.getCurrentPlayerId() && !late) return;
     if (!['challenge_block', 'challenge_block_response'].includes(gs.phase)) return;
     if (GameLogic.allPassed(gs) || GameLogic.nowMs() >= gs.deadline) {
         RoomManager.mutateGame(cur => {
