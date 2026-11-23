@@ -1,10 +1,10 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Coup - Jogo de Cartas</title>
-    <link rel="stylesheet" href="styles.css?v=6">
+    <link rel="stylesheet" href="styles.css?v=9">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Creepster&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
@@ -31,59 +31,26 @@
                             <label for="creator-name">Seu Nome</label>
                             <input type="text" id="creator-name" placeholder="Digite seu nome" required maxlength="20">
                         </div>
-                        <div class="form-group">
-                            <label>Número de Jogadores</label>
-                            <select id="player-count" required>
-                                <option value="2">2 Jogadores</option>
-                                <option value="3">3 Jogadores</option>
-                                <option value="4" selected>4 Jogadores</option>
-                                <option value="5">5 Jogadores</option>
-                                <option value="6">6 Jogadores</option>
-                            </select>
-                        </div>
                         
                         <!-- House Rules -->
                         <fieldset class="form-group house-rules-fieldset">
-                            <legend>⚙️ Regras da Casa (Opcionais)</legend>
+                            <legend>⚙️ Regras Opcionais</legend>
                             <div class="house-rules-grid">
-                                <label class="house-rule-item">
-                                    <input type="checkbox" name="houseRule" value="noBluffFirstRound" checked>
-                                    <span class="hr-label">Sem Blefe 1ª Rodada</span>
-                                    <span class="hr-desc">Primeira rodada: ações e bloqueios só com cartas reais (padrão)</span>
-                                </label>
-                                <label class="house-rule-item">
-                                    <input type="checkbox" name="houseRule" value="revealAllOnDeath">
-                                    <span class="hr-label">Revelar Todas na Morte</span>
-                                    <span class="hr-desc">Eliminado mostra todas as cartas</span>
-                                </label>
-                                <label class="house-rule-item">
-                                    <input type="checkbox" name="houseRule" value="assassinCosts2">
-                                    <span class="hr-label">Assassino = 2💰</span>
-                                    <span class="hr-desc">Custa 2 moedas (mais agressivo)</span>
-                                </label>
                                 <label class="house-rule-item">
                                     <input type="checkbox" name="houseRule" value="withInquisitor">
                                     <span class="hr-label">Com Inquisidor</span>
                                     <span class="hr-desc">Adiciona o Inquisidor (junto com o Embaixador)</span>
                                 </label>
+                                <label class="house-rule-item">
+                                    <input type="checkbox" name="houseRule" value="reformation">
+                                    <span class="hr-label">Com a Reforma</span>
+                                    <span class="hr-desc">Facções Lealistas × Reformistas, Conversão e Desvio do Tesouro</span>
+                                </label>
                             </div>
-                            <button type="button" id="btn-toggle-all-rules" class="btn btn-secondary btn-small">Selecionar Todas</button>
                         </fieldset>
                         
                         <button type="submit" class="btn btn-primary btn-large">Criar Sala</button>
                     </form>
-                    <div id="room-created" class="room-info hidden">
-                        <h3>Sala Criada!</h3>
-                        <div class="room-code-container">
-                            <span id="room-code-display" class="room-code">--</span>
-                            <button id="copy-code" class="btn btn-secondary btn-small" title="Copiar código">📋</button>
-                        </div>
-                        <p class="room-instruction">Compartilhe o código com seus amigos</p>
-                        <div id="waiting-players" class="waiting-list">
-                            <p>Aguardando jogadores...</p>
-                        </div>
-                        <button id="start-game" class="btn btn-primary btn-large hidden" disabled>Iniciar Jogo</button>
-                    </div>
                 </div>
 
                 <!-- Entrar na Sala -->
@@ -115,6 +82,10 @@
             </header>
 
             <main class="game-main">
+                <!-- Residência da corte (arte do tema) + Tesouro Reserva na Reforma -->
+                <div class="residence-banner" role="img" aria-label="Palácio da corte">
+                    <span id="treasury-badge" class="treasury-badge hidden" title="Tesouro Reserva">🏛️ Tesouro: <strong id="treasury-count">0</strong></span>
+                </div>
                 <!-- Área dos Oponentes -->
                 <div id="opponents-area" class="players-area opponents"></div>
 
@@ -267,10 +238,8 @@
                 <section class="rules-section">
                     <h3>Regras da Casa Populares (Opcionais)</h3>
                     <ul>
-                        <li><strong>Sem Blefe 1ª Rodada:</strong> Na primeira rodada, ações e bloqueios só com cartas reais (marcada por padrão; contestar continua permitido)</li>
+                        <li><strong>Com a Reforma:</strong> Cada jogador é <em>Lealista</em> 👑 ou <em>Reformista</em> ✊, alternando à mesa. Não se pode dar Golpe, Assassinar, Roubar, Investigar nem bloquear a Ajuda Externa de alguém da <strong>mesma facção</strong>, a menos que todos sejam da mesma facção. Ações novas: <strong>Converter-se</strong> (1 moeda ao Tesouro, troca sua facção), <strong>Converter Outro</strong> (2 moedas ao Tesouro, troca a facção de outro), <strong>Desviar Tesouro</strong> (pega todas as moedas do Tesouro alegando <em>não</em> ter o Duque; se contestado e tiver o Duque, perde 1 carta e não leva nada).</li>
                         <li><strong>Com Inquisidor:</strong> Adiciona o Inquisidor ao baralho, junto com o Embaixador</li>
-                        <li><strong>Revelar Todas na Morte:</strong> Eliminado mostra todas as cartas restantes</li>
-                        <li><strong>Assassino = 2💰:</strong> Assassinato custa 2 moedas (mais agressivo)</li>
                     </ul>
                     <p style="margin-top: 0.5rem; font-size: 0.85rem; color: var(--text-muted);">Configuráveis ao criar a sala.</p>
                 </section>
@@ -358,8 +327,8 @@
             };
         })();
     </script>
-    <script src="game-logic.js?v=6"></script>
-    <script src="room-manager.js?v=6"></script>
-    <script src="app.js?v=6"></script>
+    <script src="game-logic.js?v=9"></script>
+    <script src="room-manager.js?v=9"></script>
+    <script src="app.js?v=9"></script>
 </body>
 </html>

@@ -1676,3 +1676,24 @@ body {
 }
 .hand-card, .character-card { cursor: pointer; }
 
+
+/* Residência da corte (arte do tema) */
+.residence-banner {
+    position: relative;
+    height: 110px;
+    border-radius: 12px;
+    background: url('assets/residencia.svg') center bottom / cover no-repeat;
+    border: 1px solid rgba(212, 175, 55, 0.35);
+    margin-bottom: 0.75rem;
+}
+.treasury-badge {
+    position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.7); border: 1px solid var(--accent-gold);
+    border-radius: 999px; padding: 0.2rem 0.7rem; font-size: 0.85rem; color: #f5e6b8;
+}
+/* Reforma: selo de facção */
+.faction-tag { font-size: 0.7rem; padding: 0 0.35rem; border-radius: 6px; white-space: nowrap; }
+.faction-tag.loyalist { background: #8b1a1a; color: #f5e6b8; }
+.faction-tag.reformist { background: #1a3a8b; color: #f5e6b8; }
+@media (max-width: 480px) { .residence-banner { height: 70px; } }
+

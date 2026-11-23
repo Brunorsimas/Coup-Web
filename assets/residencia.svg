@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 200" preserveAspectRatio="xMidYMax slice">
+  <!-- Palácio da corte: ala Lealista (vermelho) à esquerda, ala Reformista (azul) à direita -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0b0d1a"/><stop offset="1" stop-color="#2a1a2e"/>
+    </linearGradient>
+    <linearGradient id="stone" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3a3340"/><stop offset="1" stop-color="#1c1820"/>
+    </linearGradient>
+    <radialGradient id="moon"><stop offset="0" stop-color="#f5e6b8"/><stop offset="1" stop-color="#f5e6b8" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect width="800" height="200" fill="url(#sky)"/>
+  <circle cx="660" cy="40" r="40" fill="url(#moon)" opacity=".6"/>
+  <circle cx="660" cy="40" r="14" fill="#f5e6b8"/>
+  <!-- holofotes -->
+  <path d="M180 200 L120 0 L150 0 Z" fill="#d4af37" opacity=".07"/>
+  <path d="M620 200 L690 0 L660 0 Z" fill="#d4af37" opacity=".07"/>
+  <!-- torres/agulhas laterais -->
+  <path d="M90 200 V95 L110 50 L130 95 V200 Z" fill="url(#stone)"/>
+  <path d="M670 200 V95 L690 50 L710 95 V200 Z" fill="url(#stone)"/>
+  <!-- alas -->
+  <rect x="130" y="110" width="200" height="90" fill="url(#stone)"/>
+  <rect x="470" y="110" width="200" height="90" fill="url(#stone)"/>
+  <!-- corpo central + frontão -->
+  <rect x="300" y="95" width="200" height="105" fill="url(#stone)"/>
+  <path d="M290 98 L400 45 L510 98 Z" fill="#2b2530" stroke="#d4af37" stroke-width="2"/>
+  <!-- cúpula central -->
+  <path d="M360 50 Q400 5 440 50 Z" fill="#2b2530" stroke="#d4af37" stroke-width="2"/>
+  <line x1="400" y1="5" x2="400" y2="22" stroke="#d4af37" stroke-width="2"/>
+  <circle cx="400" cy="5" r="3" fill="#d4af37"/>
+  <!-- colunas -->
+  <g fill="#4a4250">
+    <rect x="318" y="105" width="10" height="95"/><rect x="348" y="105" width="10" height="95"/>
+    <rect x="378" y="105" width="10" height="95"/><rect x="412" y="105" width="10" height="95"/>
+    <rect x="442" y="105" width="10" height="95"/><rect x="472" y="105" width="10" height="95"/>
+  </g>
+  <!-- janelas iluminadas -->
+  <g fill="#d4af37" opacity=".75">
+    <rect x="150" y="130" width="14" height="22" rx="7"/><rect x="185" y="130" width="14" height="22" rx="7"/>
+    <rect x="220" y="130" width="14" height="22" rx="7"/><rect x="255" y="130" width="14" height="22" rx="7"/>
+    <rect x="290" y="130" width="14" height="22" rx="7" opacity=".4"/>
+    <rect x="496" y="130" width="14" height="22" rx="7" opacity=".4"/>
+    <rect x="531" y="130" width="14" height="22" rx="7"/><rect x="566" y="130" width="14" height="22" rx="7"/>
+    <rect x="601" y="130" width="14" height="22" rx="7"/><rect x="636" y="130" width="14" height="22" rx="7"/>
+  </g>
+  <!-- portão -->
+  <path d="M385 200 V165 Q400 148 415 165 V200 Z" fill="#0b0d1a" stroke="#d4af37" stroke-width="1.5"/>
+  <!-- estandartes Lealistas (vermelho, coroa) -->
+  <g fill="#8b1a1a" stroke="#d4af37" stroke-width="1">
+    <path d="M140 112 h22 v40 l-11 -8 l-11 8 Z"/><path d="M200 112 h22 v40 l-11 -8 l-11 8 Z"/><path d="M98 98 h24 v44 l-12 -9 l-12 9 Z"/>
+  </g>
+  <g fill="#d4af37"><path d="M146 122 l3 5 l2 -5 l2 5 l3 -5 v8 h-10 Z"/><path d="M206 122 l3 5 l2 -5 l2 5 l3 -5 v8 h-10 Z"/></g>
+  <!-- estandartes Reformistas (azul, punho/estrela) -->
+  <g fill="#1a3a8b" stroke="#d4af37" stroke-width="1">
+    <path d="M578 112 h22 v40 l-11 -8 l-11 8 Z"/><path d="M638 112 h22 v40 l-11 -8 l-11 8 Z"/><path d="M678 98 h24 v44 l-12 -9 l-12 9 Z"/>
+  </g>
+  <g fill="#d4af37"><circle cx="589" cy="126" r="4"/><circle cx="649" cy="126" r="4"/></g>
+  <!-- multidão nos portões -->
+  <g fill="#07080f">
+    <path d="M0 200 Q20 180 40 200 Q55 184 70 200 Q90 178 110 200 Q130 186 150 200 Q175 182 200 200 Q225 188 250 200 H0 Z"/>
+    <path d="M550 200 Q575 186 600 200 Q620 180 640 200 Q660 188 680 200 Q705 178 730 200 Q750 186 770 200 Q785 182 800 200 Z"/>
+  </g>
+</svg>

@@ -38,15 +38,10 @@ function setupEventListeners() {
     // Formulários
     document.getElementById('form-create').addEventListener('submit', handleCreateRoom);
     document.getElementById('form-join').addEventListener('submit', handleJoinRoom);
-    document.getElementById('copy-code').addEventListener('click', copyRoomCode);
-    document.getElementById('start-game').addEventListener('click', handleStartGame);
     document.getElementById('btn-new-game').addEventListener('click', handleNewGame);
     document.getElementById('btn-play-again').addEventListener('click', () => RoomManager.restartRoom().catch(e => alert(e.message)));
     document.getElementById('btn-back-lobby').addEventListener('click', handleBackToLobby);
     document.getElementById('clear-log').addEventListener('click', clearLog);
-    
-    // House Rules - Toggle All
-    document.getElementById('btn-toggle-all-rules').addEventListener('click', toggleAllHouseRules);
     
     // Regras
     document.getElementById('btn-rules').addEventListener('click', toggleRules);
@@ -101,13 +96,12 @@ function switchTab(tab) {
 async function handleCreateRoom(e) {
     e.preventDefault();
     const name = document.getElementById('creator-name').value.trim();
-    const maxPlayers = document.getElementById('player-count').value;
     
     if (!name) return alert('Digite seu nome');
     
     try {
         showLoading(true);
-        const result = await RoomManager.createRoom(name, maxPlayers);
+        const result = await RoomManager.createRoom(name, 6) // dono ajusta na mesa de espera;
         // Ir direto para a tela de jogo (mesa) para aguardar jogadores
         showScreen('game');
     } catch (error) {
@@ -134,21 +128,6 @@ async function handleJoinRoom(e) {
     } finally {
         showLoading(false);
     }
-}
-
-function showRoomCreated(code) {
-    document.getElementById('form-create').classList.add('hidden');
-    document.getElementById('room-created').classList.remove('hidden');
-    document.getElementById('room-code-display').textContent = code;
-}
-
-function copyRoomCode() {
-    const code = document.getElementById('room-code-display').textContent;
-    navigator.clipboard.writeText(code).then(() => {
-        const btn = document.getElementById('copy-code');
-        btn.textContent = '✓';
-        setTimeout(() => btn.textContent = '📋', 1500);
-    });
 }
 
 function showJoinError(message) {
@@ -221,30 +200,6 @@ function handleRoomUpdate(room) {
     } else if (room.status === 'finished') {
         showEndScreen(room);
     }
-}
-
-function updateLobbyWaiting(room) {
-    const waitingList = document.getElementById('waiting-players');
-    const startBtn = document.getElementById('start-game');
-    const isCreator = RoomManager.isCreator(room);
-    
-    waitingList.innerHTML = '';
-    
-    const players = Object.values(getPlayers(room)).sort((a, b) => a.order - b.order);
-    players.forEach(p => {
-        const div = document.createElement('div');
-        div.className = 'waiting-player';
-        div.innerHTML = `
-            <div class="player-avatar">${p.name.charAt(0).toUpperCase()}</div>
-            <span class="player-name-tag">${p.name}</span>
-            ${p.id === RoomManager.getCurrentPlayerId() ? '<span class="player-you-badge">VOCÊ</span>' : ''}
-            ${p.isCreator ? '<span class="player-you-badge" style="background:var(--accent-gold);color:var(--bg-dark)">CRIADOR</span>' : ''}
-        `;
-        waitingList.appendChild(div);
-    });
-    
-    startBtn.classList.toggle('hidden', !isCreator);
-    startBtn.disabled = players.length < 2;
 }
 
 function updateGameWaiting(room) {
@@ -393,7 +348,7 @@ function updateHeader(room) {
         div.innerHTML = `
             <div class="player-mini-avatar">${p.name.charAt(0).toUpperCase()}</div>
             <div class="player-mini-info">
-                <span class="player-mini-name">${p.name}${p.id === RoomManager.getCurrentPlayerId() ? ' (Você)' : ''}</span>
+                <span class="player-mini-name">${p.name}${p.id === RoomManager.getCurrentPlayerId() ? ' (Você)' : ''}${factionTag(p)}</span>
                 <div class="player-mini-stats">
                     <span class="coin-mini">💰 ${p.coins}</span>
                     <div class="influence-count">
@@ -407,7 +362,17 @@ function updateHeader(room) {
     });
 }
 
+// Reforma: selo da facção ao lado do nome
+function factionTag(p) {
+    if (!p.faction) return '';
+    return ` <span class="faction-tag ${p.faction}" title="${GameLogic.FACTION_LABELS[p.faction]}">${GameLogic.FACTION_ICONS[p.faction]} ${GameLogic.FACTION_LABELS[p.faction]}</span>`;
+}
+
 function updateOpponents(room) {
+    const tb = document.getElementById('treasury-badge');
+    tb.classList.toggle('hidden', !room.gameState?.houseRules?.reformation);
+    document.getElementById('treasury-count').textContent = room.gameState?.treasury || 0;
+
     const area = document.getElementById('opponents-area');
     area.innerHTML = '';
     
@@ -425,7 +390,7 @@ function updateOpponents(room) {
         // Cartas vivas: verso. Perdidas: viradas, com imagem do personagem.
         div.innerHTML = `
             <div class="opponent-avatar">${p.name.charAt(0).toUpperCase()}</div>
-            <div class="opponent-name">${p.name}</div>
+            <div class="opponent-name">${p.name}${factionTag(p)}</div>
             <div class="opponent-stats">
                 <span class="opponent-coins">💰 ${p.coins}</span>
                 <div class="opponent-influences">
@@ -436,7 +401,8 @@ function updateOpponents(room) {
         `;
         
         // Clique para selecionar alvo (só vivos)
-        if (p.alive && selectedAction && GameLogic.requiresTarget(selectedAction) && !isCurrentTurn) {
+        if (p.alive && selectedAction && GameLogic.requiresTarget(selectedAction) && !isCurrentTurn &&
+            GameLogic.getValidTargets(gameState, RoomManager.getCurrentPlayerId(), selectedAction).some(t => t.id === p.id)) {
             div.style.cursor = 'pointer';
             div.addEventListener('click', () => selectTarget(p.id));
         }
@@ -507,8 +473,7 @@ function showCharInfo(character, anchor) {
     }
     if (pop.dataset.for === character && !pop.classList.contains('hidden')) { pop.classList.add('hidden'); return; }
     pop.dataset.for = character;
-    const cost = character === 'assassin' && roomData?.gameState?.houseRules?.assassinCosts2 ? 2 : 3;
-    pop.innerHTML = `<strong>${GameLogic.CHARACTER_LABELS[character]}</strong><br>${CHAR_INFO[character].replace('3 moedas, alvo', cost + ' moedas, alvo')}`;
+    pop.innerHTML = `<strong>${GameLogic.CHARACTER_LABELS[character]}</strong><br>${CHAR_INFO[character]}`;
     pop.classList.remove('hidden');
     const r = anchor.getBoundingClientRect();
     const w = Math.min(240, window.innerWidth - 16);
@@ -674,6 +639,13 @@ function runAction(gameState, playerId, actionId, targetId) {
             break;
         case GameLogic.ACTIONS.EXAMINE:
             GameLogic.processExamine(gameState, playerId, targetId);
+            break;
+        case GameLogic.ACTIONS.CONVERT_SELF:
+        case GameLogic.ACTIONS.CONVERT:
+            GameLogic.processConvert(gameState, playerId, targetId);
+            break;
+        case GameLogic.ACTIONS.EMBEZZLE:
+            GameLogic.processEmbezzle(gameState, playerId);
             break;
     }
 }
@@ -1075,10 +1047,8 @@ function closeRules() {
 function formatHouseRuleName(key) {
     const names = {
         mustCoupAt10: 'Coup@10',
-        noBluffFirstRound: 'SemBlefe1ª',
-        revealAllOnDeath: 'RevelaMorte',
-        assassinCosts2: 'Assassino2💰',
         withInquisitor: 'Inquisidor',
+        reformation: 'Reforma',
         twoPlayerVariant: '2Jog=3Cartas'
     };
     return names[key] || key;
@@ -1098,7 +1068,10 @@ function getActionIcon(actionId) {
         steal: '💸',
         exchange: '🔄',
         inq_exchange: '🔁',
-        examine: '🔍'
+        examine: '🔍',
+        convert_self: '🔃',
+        convert: '📜',
+        embezzle: '🏛️'
     };
     return icons[actionId] || '❓';
 }
@@ -1134,8 +1107,6 @@ function resetGameUI() {
     const hrBadge = document.getElementById('house-rules-badge');
     if (hrBadge) hrBadge.remove();
     
-    document.getElementById('form-create').classList.remove('hidden');
-    document.getElementById('room-created').classList.add('hidden');
     document.getElementById('creator-name').value = '';
     document.getElementById('player-name').value = '';
     document.getElementById('room-code-input').value = '';
@@ -1143,16 +1114,6 @@ function resetGameUI() {
     
     // Reset house rules checkboxes
     document.querySelectorAll('input[name="houseRule"]').forEach(cb => cb.checked = false);
-    document.getElementById('btn-toggle-all-rules').textContent = 'Selecionar Todas';
-}
-
-function toggleAllHouseRules() {
-    const checkboxes = document.querySelectorAll('input[name="houseRule"]');
-    const allChecked = Array.from(checkboxes).every(cb => cb.checked);
-    checkboxes.forEach(cb => cb.checked = !allChecked);
-    
-    const btn = document.getElementById('btn-toggle-all-rules');
-    btn.textContent = allChecked ? 'Selecionar Todas' : 'Desmarcar Todas';
 }
 
 function handleRoomDeleted() {

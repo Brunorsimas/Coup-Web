@@ -159,29 +159,6 @@ t('10+ moedas: só Golpe', () => {
     const a = G.getAvailableActions(s.players.p1, s);
     assert.deepStrictEqual(a.filter(x => !x.disabled).map(x => x.id), ['coup']);
 });
-t('House rule: Assassino custa 2', () => {
-    const s = mk(['assassin', 'duke'], ['captain', 'countess'], 2);
-    s.houseRules = { assassinCosts2: true };
-    G.processAssassinate(s, 'p1', 'p2');
-    assert.strictEqual(s.players.p1.coins, 0);
-});
-t('House rule: sem blefe na 1ª rodada', () => {
-    const s = mk(['duke', 'captain'], ['assassin', 'countess'], 3);
-    s.houseRules = { noBluffFirstRound: true };
-    const a = Object.fromEntries(G.getAvailableActions(s.players.p1, s).map(x => [x.id, x.disabled]));
-    assert.strictEqual(a.tax, false); assert.strictEqual(a.steal, false);
-    assert.strictEqual(a.assassinate, true); assert.strictEqual(a.exchange, true);
-});
-t('Padrão: sem blefe na 1ª rodada', () => assert.strictEqual(G.HOUSE_RULES_DEFAULTS?.noBluffFirstRound ?? true, true));
-t('1ª rodada sem blefe: bloqueio só com carta real', () => {
-    const s = mk(['captain', 'duke'], ['captain', 'countess'], 2, 5);
-    s.houseRules = { noBluffFirstRound: true };
-    G.processSteal(s, 'p1', 'p2');
-    assert.deepStrictEqual(G.blockOptions(s, 'p2'), ['captain']);
-    assert.strictEqual(G.processBlock(s, 'p2', 'ambassador'), false);
-    s.round = 2;
-    assert.deepStrictEqual(G.blockOptions(s, 'p2'), ['captain', 'ambassador']);
-});
 t('Contestar: inválido fora da janela, contra Ajuda Externa, por si mesmo ou morto', () => {
     const s = mk(['duke', 'captain'], ['assassin', 'countess'], 2, 2,
         { p3: { id: 'p3', name: 'C', coins: 2, influences: [], alive: false, order: 2 } });
@@ -234,6 +211,57 @@ t('Assassinato bloqueado por Condessa verdadeira e contestado: vez passa', () =>
     G.processLoseInfluence(s, 'p1', 'duke');
     assert.strictEqual(s.phase, 'action'); assert.strictEqual(s.currentTurn, 'p2');
     assert.strictEqual(s.players.p2.influences.length, 2);
+});
+// ===== Reforma =====
+const mkR = () => {
+    const s = mk(['duke', 'captain'], ['assassin', 'countess'], 7, 7,
+        { p3: { id: 'p3', name: 'C', coins: 7, influences: ['captain', 'ambassador'], alive: true, order: 2 } });
+    s.houseRules = { reformation: true }; s.treasury = 0;
+    G.assignFactions(Object.values(s.players), 'loyalist'); // p1 L, p2 R, p3 L
+    return s;
+};
+t('Reforma: facções alternadas e alvos só da outra facção', () => {
+    const s = mkR();
+    assert.deepStrictEqual(['p1', 'p2', 'p3'].map(id => s.players[id].faction), ['loyalist', 'reformist', 'loyalist']);
+    assert.deepStrictEqual(G.getValidTargets(s, 'p1', 'coup').map(p => p.id), ['p2']);
+    assert.deepStrictEqual(G.getValidTargets(s, 'p1', 'convert').map(p => p.id).sort(), ['p2', 'p3']);
+});
+t('Reforma: todos da mesma facção liberam ataques', () => {
+    const s = mkR(); s.players.p2.alive = false; s.players.p2.influences = [];
+    assert.deepStrictEqual(G.getValidTargets(s, 'p1', 'steal').map(p => p.id), ['p3']);
+});
+t('Reforma: não bloqueia Ajuda Externa da própria facção', () => {
+    const s = mkR(); G.processForeignAid(s, 'p1');
+    assert.deepStrictEqual(G.blockOptions(s, 'p3'), []);
+    assert.deepStrictEqual(G.blockOptions(s, 'p2'), ['duke']);
+});
+t('Reforma: Converter-se (1) e Converter Outro (2) vão ao Tesouro', () => {
+    const s = mkR();
+    assert.ok(G.processConvert(s, 'p1', 'p1'));
+    assert.strictEqual(s.players.p1.faction, 'reformist'); assert.strictEqual(s.players.p1.coins, 6); assert.strictEqual(s.treasury, 1);
+    assert.strictEqual(s.currentTurn, 'p2');
+    assert.ok(G.processConvert(s, 'p2', 'p3'));
+    assert.strictEqual(s.players.p3.faction, 'reformist'); assert.strictEqual(s.players.p2.coins, 5); assert.strictEqual(s.treasury, 3);
+});
+t('Reforma: Desvio sem contestação leva o Tesouro', () => {
+    const s = mkR(); s.treasury = 4;
+    G.processEmbezzle(s, 'p2');
+    ['p1', 'p3'].forEach(id => G.processPass(s, id));
+    assert.strictEqual(s.players.p2.coins, 11); assert.strictEqual(s.treasury, 0);
+});
+t('Reforma: Desvio contestado — com Duque perde, sem Duque o contestador perde', () => {
+    let s = mkR(); s.treasury = 3;
+    G.processEmbezzle(s, 'p1'); // p1 TEM Duque: mentiu
+    assert.ok(G.processChallenge(s, 'p2')); G.resolveChallenge(s);
+    assert.strictEqual(s.pendingLoss.playerId, 'p1'); assert.deepStrictEqual(s.players.p1.influences, ['duke', 'captain'], 'nada trocado');
+    G.processLoseInfluence(s, 'p1', 'captain');
+    assert.strictEqual(s.players.p1.coins, 7); assert.strictEqual(s.treasury, 3); assert.strictEqual(s.currentTurn, 'p2');
+    s = mkR(); s.treasury = 3;
+    G.processEmbezzle(s, 'p2'); // p2 sem Duque: verdade
+    assert.ok(G.processChallenge(s, 'p1')); G.resolveChallenge(s);
+    assert.strictEqual(s.pendingLoss.playerId, 'p1');
+    G.processLoseInfluence(s, 'p1', 'captain');
+    assert.strictEqual(s.players.p2.coins, 10); assert.strictEqual(s.treasury, 0);
 });
 t('Turno pula eliminado', () => {
     const s = mk(['duke'], ['assassin'], 2, 2,
@@ -297,7 +325,7 @@ t('Fuzz: 300 partidas aleatórias terminam e conservam cartas e moedas', () => {
     const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
     for (let g = 0; g < 300; g++) {
         const n = 2 + (g % 5);
-        const houseRules = { assassinCosts2: g % 2 === 1, withInquisitor: g % 3 === 0, noBluffFirstRound: g % 4 === 0 };
+        const houseRules = { withInquisitor: g % 3 === 0 };
         const totalCards = houseRules.withInquisitor ? 18 : 15;
         let deck = G.createDeck(houseRules);
         const players = {};

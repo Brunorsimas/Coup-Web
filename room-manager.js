@@ -229,7 +229,12 @@ async function startGame(houseRules = {}) {
         };
     });
     
+    // Reforma: facções alternadas a partir do 1º jogador
+    // ponytail: 1º jogador recebe facção sorteada em vez de escolher; adicionar escolha se pedirem
+    if (houseRules.reformation) GameLogic.assignFactions(Object.values(gamePlayers), Math.random() < 0.5 ? 'loyalist' : 'reformist');
+
     const gameState = {
+        treasury: 0,
         currentTurn: players[0].id,
         players: gamePlayers,
         deck: deck,

@@ -14,16 +14,12 @@ const CHARACTERS = {
 // House Rules Configuration
 const HOUSE_RULES_DEFAULTS = {
     mustCoupAt10: false,        // Obrigatório dar Golpe com 10+ moedas
-    noBluffFirstRound: true,    // Primeira rodada sem blefe (padrão)
-    revealAllOnDeath: false,    // Eliminado revela todas as cartas
-    assassinCosts2: false,      // Assassino custa 2 moedas
     twoPlayerVariant: false     // 3 cartas cada (2 jogadores)
 };
 
 function getActionCost(action, houseRules, player) {
     const baseCost = ACTION_COSTS[action] || 0;
     
-    if (houseRules.assassinCosts2 && action === ACTIONS.ASSASSINATE) return 2;
     if (houseRules.mustCoupAt10 && action === ACTIONS.COUP && player.coins >= 10) return 7; // Ainda 7, mas obrigatório
     
     return baseCost;
@@ -65,7 +61,7 @@ function mustCoup(houseRules, coins) {
 }
 
 function canBluff(houseRules, roundNumber) {
-    return !houseRules.noBluffFirstRound || roundNumber > 1;
+    return true; // blefe sempre permitido
 }
 
 const CHARACTER_LABELS = {
@@ -95,7 +91,10 @@ const ACTIONS = {
     STEAL: 'steal',
     EXCHANGE: 'exchange',
     INQ_EXCHANGE: 'inq_exchange', // Inquisidor: compra 1, devolve 1
-    EXAMINE: 'examine'            // Inquisidor: olha 1 carta do alvo e pode forçar troca
+    EXAMINE: 'examine',           // Inquisidor: olha 1 carta do alvo e pode forçar troca
+    CONVERT_SELF: 'convert_self', // Reforma: paga 1 ao Tesouro e troca a própria facção
+    CONVERT: 'convert',           // Reforma: paga 2 ao Tesouro e troca a facção de outro
+    EMBEZZLE: 'embezzle'          // Reforma: pega o Tesouro alegando NÃO ter o Duque
 };
 
 const ACTION_LABELS = {
@@ -107,8 +106,32 @@ const ACTION_LABELS = {
     [ACTIONS.STEAL]: 'Roubo',
     [ACTIONS.EXCHANGE]: 'Troca (Embaixador)',
     [ACTIONS.INQ_EXCHANGE]: 'Troca (Inquisidor)',
-    [ACTIONS.EXAMINE]: 'Investigar'
+    [ACTIONS.EXAMINE]: 'Investigar',
+    [ACTIONS.CONVERT_SELF]: 'Converter-se',
+    [ACTIONS.CONVERT]: 'Converter Outro',
+    [ACTIONS.EMBEZZLE]: 'Desviar Tesouro'
 };
+
+// ===== Reforma: facções =====
+const FACTIONS = { LOYALIST: 'loyalist', REFORMIST: 'reformist' };
+const FACTION_LABELS = { loyalist: 'Lealista', reformist: 'Reformista' };
+const FACTION_ICONS = { loyalist: '👑', reformist: '✊' };
+
+// Facções alternadas à mesa a partir do 1º jogador
+function assignFactions(players, firstFaction = FACTIONS.LOYALIST) {
+    const other = f => f === FACTIONS.LOYALIST ? FACTIONS.REFORMIST : FACTIONS.LOYALIST;
+    let f = firstFaction;
+    [...players].sort((a, b) => a.order - b.order).forEach(p => { p.faction = f; f = other(f); });
+}
+
+// Regra da Reforma: não se ataca a própria facção, salvo se todos os vivos forem da mesma
+function allSameFaction(gameState) {
+    return new Set(Object.values(gameState.players).filter(p => p.alive).map(p => p.faction)).size <= 1;
+}
+function canHitFaction(gameState, aId, bId) {
+    if (!gameState.houseRules?.reformation || allSameFaction(gameState)) return true;
+    return gameState.players[aId].faction !== gameState.players[bId].faction;
+}
 
 const ACTION_COSTS = {
     [ACTIONS.INCOME]: 0,
@@ -119,7 +142,10 @@ const ACTION_COSTS = {
     [ACTIONS.STEAL]: 0,
     [ACTIONS.EXCHANGE]: 0,
     [ACTIONS.INQ_EXCHANGE]: 0,
-    [ACTIONS.EXAMINE]: 0
+    [ACTIONS.EXAMINE]: 0,
+    [ACTIONS.CONVERT_SELF]: 1,
+    [ACTIONS.CONVERT]: 2,
+    [ACTIONS.EMBEZZLE]: 0
 };
 
 // House Rules (serão passados do estado do jogo)
@@ -192,7 +218,7 @@ function canAfford(player, action) {
 
 // Verifica se ação requer alvo
 function requiresTarget(action) {
-    return [ACTIONS.COUP, ACTIONS.ASSASSINATE, ACTIONS.STEAL, ACTIONS.EXAMINE].includes(action);
+    return [ACTIONS.COUP, ACTIONS.ASSASSINATE, ACTIONS.STEAL, ACTIONS.EXAMINE, ACTIONS.CONVERT].includes(action);
 }
 
 // Verifica se ação é bloqueável
@@ -266,7 +292,7 @@ function processAssassinate(gameState, playerId, targetId) {
     const player = gameState.players[playerId];
     const target = gameState.players[targetId];
     const hr = gameState.houseRules || currentHouseRules;
-    const cost = hr.assassinCosts2 ? 2 : 3;
+    const cost = 3;
     
     player.coins -= cost;
     addLog(gameState, 'action', `${player.name} tentou <span class="log-action">Assassinato</span> em <span class="log-target">${target.name}</span> (-${cost} moedas)`);
@@ -329,6 +355,30 @@ function processExamine(gameState, playerId, targetId) {
     const target = gameState.players[targetId];
     addLog(gameState, 'action', `${player.name} quer <span class="log-action">Investigar</span> <span class="log-target">${target.name}</span> (Inquisidor)`);
     gameState.pendingAction = { type: ACTIONS.EXAMINE, playerId, targetId, claimedCharacter: CHARACTERS.INQUISITOR };
+    openResponseWindow(gameState, 'challenge_block');
+}
+
+// Reforma: Conversão (não contestável nem bloqueável). Moedas vão ao Tesouro Reserva.
+function processConvert(gameState, playerId, targetId) {
+    const player = gameState.players[playerId];
+    const target = gameState.players[targetId || playerId];
+    const cost = target.id === playerId ? 1 : 2;
+    if (!gameState.houseRules?.reformation || player.coins < cost || !target.alive) return false;
+    player.coins -= cost;
+    gameState.treasury = (gameState.treasury || 0) + cost;
+    target.faction = target.faction === FACTIONS.LOYALIST ? FACTIONS.REFORMIST : FACTIONS.LOYALIST;
+    addLog(gameState, 'action', target.id === playerId
+        ? `${player.name} se <span class="log-action">converteu</span> em ${FACTION_LABELS[target.faction]} (-1 moeda ao Tesouro)`
+        : `${player.name} <span class="log-action">converteu</span> <span class="log-target">${target.name}</span> em ${FACTION_LABELS[target.faction]} (-2 moedas ao Tesouro)`);
+    nextTurn(gameState);
+    return true;
+}
+
+// Reforma: Desvio. Alega NÃO ter o Duque; contestação vence se ele tiver o Duque.
+function processEmbezzle(gameState, playerId) {
+    const player = gameState.players[playerId];
+    addLog(gameState, 'action', `${player.name} quer <span class="log-action">Desviar o Tesouro</span> (${gameState.treasury || 0} moedas, alega não ter Duque)`);
+    gameState.pendingAction = { type: ACTIONS.EMBEZZLE, playerId, claimedCharacter: CHARACTERS.DUKE, inverse: true };
     openResponseWindow(gameState, 'challenge_block');
 }
 
@@ -441,10 +491,11 @@ function canDeclareBlock(gameState, playerId) {
     const action = gameState.pendingAction;
     const player = gameState.players[playerId];
     if (!action || !player?.alive || !isBlockable(action.type) || action.playerId === playerId || action.blocked) return false;
-    return action.type === ACTIONS.FOREIGN_AID || action.targetId === playerId;
+    if (action.type === ACTIONS.FOREIGN_AID) return canHitFaction(gameState, playerId, action.playerId);
+    return action.targetId === playerId;
 }
 
-// Cartas com que o jogador pode bloquear. Sem blefe na 1ª rodada: só cartas que possui.
+// Cartas com que o jogador pode bloquear. Blefe sempre permitido.
 function blockOptions(gameState, playerId) {
     if (!canDeclareBlock(gameState, playerId)) return [];
     const player = gameState.players[playerId];
@@ -453,7 +504,7 @@ function blockOptions(gameState, playerId) {
 }
 
 function isBluffAllowed(gameState) {
-    return !gameState.houseRules?.noBluffFirstRound || (gameState.round || 1) > 1;
+    return true; // blefe sempre permitido
 }
 
 // Prazo expirado: silêncio = permitir
@@ -516,10 +567,21 @@ function resolveChallenge(gameState) {
     const target = gameState.players[challenge.targetId];
     const claimedChar = challenge.claimedCharacter;
     
+    const inverse = !challenge.isBlockChallenge && gameState.pendingAction?.inverse;
     const targetHasChar = target.influences.includes(claimedChar);
     let actionProceeds;
     
-    if (targetHasChar) {
+    if (inverse) {
+        // Desvio: alegou NÃO ter o Duque. Com Duque, perde; sem Duque, o contestador perde. Nada é revelado/trocado.
+        const lied = targetHasChar;
+        addLog(gameState, 'result', lied
+            ? `${target.name} <span class="log-action">tinha</span> o Duque! Desvio cancelado, ${challenger.name} venceu a contestação.`
+            : `${target.name} <span class="log-action">não tinha</span> o Duque. ${challenger.name} perdeu a contestação.`);
+        gameState.pendingLoss = lied
+            ? { playerId: challenge.targetId, reason: 'challenge_lost', byPlayer: challenge.challengerId }
+            : { playerId: challenge.challengerId, reason: 'challenge_lost', byPlayer: challenge.targetId };
+        actionProceeds = !lied;
+    } else if (targetHasChar) {
         // Target tem a carta - challenger perde influência
         addLog(gameState, 'result', `${challenger.name} contestou <span class="log-action">${CHARACTER_LABELS[claimedChar]}</span> de ${target.name} e <span class="log-action">perdeu</span>! ${target.name} revela a carta.`);
         
@@ -609,6 +671,16 @@ function applyPendingAction(gameState) {
             gameState.phase = 'lose_influence';
             break;
         }
+        case ACTIONS.EMBEZZLE: {
+            const amount = gameState.treasury || 0;
+            actor.coins += amount;
+            gameState.treasury = 0;
+            addLog(gameState, 'result', `${actor.name} <span class="log-action">desviou ${amount} moedas</span> do Tesouro`);
+            gameState.pendingAction = null;
+            gameState.pendingBlock = null;
+            nextTurn(gameState);
+            break;
+        }
         case ACTIONS.EXAMINE: {
             const target = gameState.players[action.targetId];
             if (!target.alive || !actor.alive) { nextTurn(gameState); break; }
@@ -660,13 +732,7 @@ function processLoseInfluence(gameState, playerId, revealedChar) {
         player.alive = false;
         
         // House rule: reveal all on death
-        if (hr.revealAllOnDeath) {
-            const allCards = player.lost.map(c => CHARACTER_LABELS[c]).join(', ');
-            addLog(gameState, 'elimination', `${player.name} foi <span class="log-action">eliminado</span>! Cartas: ${allCards}`);
-            player.revealedAll = true;
-        } else {
-            addLog(gameState, 'elimination', `${player.name} foi <span class="log-action">eliminado</span>!`);
-        }
+        addLog(gameState, 'elimination', `${player.name} foi <span class="log-action">eliminado</span>!`);
         
         checkGameEnd(gameState);
     }
@@ -775,10 +841,10 @@ function getAvailableActions(player, gameState) {
     const round = gameState.round || currentRound;
     const actions = [];
     
-    const assassinCost = hr.assassinCosts2 ? 2 : 3;
+    const assassinCost = 3;
     // Regra oficial: começar o turno com 10+ moedas obriga o Golpe
     const mustCoupNow = player.coins >= 10;
-    const allowBluff = !hr.noBluffFirstRound || round > 1;
+    const allowBluff = true;
     
     // Renda - sempre disponível
     actions.push({ id: ACTIONS.INCOME, label: ACTION_LABELS[ACTIONS.INCOME], cost: 0, primary: true, bluff: false, disabled: mustCoupNow });
@@ -856,15 +922,27 @@ function getAvailableActions(player, gameState) {
         const hasInq = hasCharacter(player, CHARACTERS.INQUISITOR);
         const off = mustCoupNow || (!allowBluff && !hasInq);
         actions.push({ id: ACTIONS.INQ_EXCHANGE, label: ACTION_LABELS[ACTIONS.INQ_EXCHANGE], cost: 0, primary: hasInq, bluff: allowBluff && !hasInq, blockable: false, disabled: off });
-        actions.push({ id: ACTIONS.EXAMINE, label: ACTION_LABELS[ACTIONS.EXAMINE], cost: 0, primary: hasInq, bluff: allowBluff && !hasInq, requiresTarget: true, blockable: false, disabled: off });
+        actions.push({ id: ACTIONS.EXAMINE, label: ACTION_LABELS[ACTIONS.EXAMINE], cost: 0, primary: hasInq, bluff: allowBluff && !hasInq, requiresTarget: true, blockable: false, disabled: off || !getValidTargets(gameState, player.id, ACTIONS.EXAMINE).length });
     }
+
+    if (hr.reformation) {
+        const hasDukeR = hasCharacter(player, CHARACTERS.DUKE);
+        actions.push({ id: ACTIONS.CONVERT_SELF, label: ACTION_LABELS[ACTIONS.CONVERT_SELF], cost: 1, primary: false, bluff: false, disabled: mustCoupNow || player.coins < 1 });
+        actions.push({ id: ACTIONS.CONVERT, label: ACTION_LABELS[ACTIONS.CONVERT], cost: 2, primary: false, bluff: false, requiresTarget: true, disabled: mustCoupNow || player.coins < 2 });
+        actions.push({ id: ACTIONS.EMBEZZLE, label: `${ACTION_LABELS[ACTIONS.EMBEZZLE]} (${gameState.treasury || 0})`, cost: 0, primary: !hasDukeR, bluff: hasDukeR, disabled: mustCoupNow });
+    }
+    // Reforma: ataques só contra a outra facção (salvo todos iguais)
+    actions.forEach(a => {
+        if ([ACTIONS.COUP, ACTIONS.ASSASSINATE, ACTIONS.STEAL].includes(a.id) && !getValidTargets(gameState, player.id, a.id).length) a.disabled = true;
+    });
     
     return actions;
 }
 
-// Obtém alvos válidos (jogadores vivos exceto si mesmo)
-function getValidTargets(gameState, playerId) {
-    return Object.values(gameState.players).filter(p => p.alive && p.id !== playerId);
+// Obtém alvos válidos (vivos, exceto si mesmo; na Reforma, ataques só contra a outra facção)
+function getValidTargets(gameState, playerId, action) {
+    const attack = [ACTIONS.COUP, ACTIONS.ASSASSINATE, ACTIONS.STEAL, ACTIONS.EXAMINE].includes(action);
+    return Object.values(gameState.players).filter(p => p.alive && p.id !== playerId && (!attack || canHitFaction(gameState, playerId, p.id)));
 }
 
 // Verifica se jogador pode bloquear ação
@@ -916,6 +994,13 @@ const GameLogic = {
     processExamine,
     processExamineShow,
     processExamineDecide,
+    processConvert,
+    processEmbezzle,
+    assignFactions,
+    canHitFaction,
+    FACTIONS,
+    FACTION_LABELS,
+    FACTION_ICONS,
     inGame,
     processBlock,
     processChallenge,
