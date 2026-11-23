@@ -207,6 +207,10 @@ async function startGame(houseRules = {}) {
         throw new Error('Mínimo 2 jogadores para iniciar.');
     }
     
+    // Regra oficial: vencedor da partida anterior começa (se ainda estiver na sala); senão, o dono
+    players.sort((a, b) => a.order - b.order);
+    const w = players.findIndex(p => p.id === room.lastWinner);
+    if (w > 0) players.push(...players.splice(0, w));
     const playerCount = players.length;
     const cardsPerPlayer = GameLogic.getInitialCardsPerPlayer(playerCount, houseRules);
     
@@ -299,6 +303,7 @@ async function restartRoom(maxPlayers) {
     });
     await firebaseRefs.update(firebaseRefs.ref(firebaseDb, `rooms/${currentRoomId}`), {
         status: 'waiting', gameState: null, players,
+        lastWinner: room.gameState?.winner || room.lastWinner || null, // regra: vencedor anterior começa
         maxPlayers: Math.max(maxPlayers || room.maxPlayers, Object.keys(players).length)
     });
 }

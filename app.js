@@ -54,6 +54,11 @@ function setupEventListeners() {
     
     // Modais (botões de contestação recebem onclick dinâmico)
     document.getElementById('btn-confirm-exchange').addEventListener('click', handleConfirmExchange);
+    // Personagens no painel de regras também mostram o pop-up
+    document.querySelectorAll('.characters-grid .character-card img').forEach(img => {
+        const ch = img.getAttribute('src').match(/assets\/(\w+)\.svg/)[1];
+        img.parentElement.addEventListener('click', e => showCharInfo(ch, e.currentTarget));
+    });
     // Overlay não fecha modais: respostas são obrigatórias (o prazo resolve omissões)
 
     // Relógio: contagem regressiva e timeout (só o jogador da vez grava)
@@ -477,7 +482,40 @@ function createCardElement(character, index, revealed) {
         <span class="card-label">${GameLogic.CHARACTER_LABELS[character]}</span>
     `;
     if (revealed) card.title = 'Influência perdida';
+    card.addEventListener('click', e => showCharInfo(character, e.currentTarget));
     return card;
+}
+
+// Pop-up pequeno: o que o personagem faz
+const CHAR_INFO = {
+    duke: 'Taxar: +3 moedas.<br>Bloqueia Ajuda Externa.',
+    assassin: 'Assassinar: paga 3 moedas, alvo perde 1 carta.<br>Bloqueado pela Condessa.',
+    captain: 'Roubar: pega até 2 moedas de um jogador.<br>Bloqueia Roubo.',
+    ambassador: 'Trocar: compra 2 cartas do baralho e devolve 2.<br>Bloqueia Roubo.',
+    countess: 'Sem ação própria.<br>Bloqueia Assassinato.',
+    inquisitor: 'Trocar: compra 1 carta e devolve 1.<br>Investigar: vê 1 carta de um jogador e pode obrigá-lo a trocar.<br>Bloqueia Roubo.'
+};
+function showCharInfo(character, anchor) {
+    let pop = document.getElementById('char-info-pop');
+    if (!pop) {
+        pop = document.createElement('div');
+        pop.id = 'char-info-pop';
+        pop.className = 'char-info-pop';
+        pop.setAttribute('role', 'tooltip');
+        document.body.appendChild(pop);
+        document.addEventListener('click', e => { if (!e.target.closest('[data-character], .character-card')) pop.classList.add('hidden'); });
+    }
+    if (pop.dataset.for === character && !pop.classList.contains('hidden')) { pop.classList.add('hidden'); return; }
+    pop.dataset.for = character;
+    const cost = character === 'assassin' && roomData?.gameState?.houseRules?.assassinCosts2 ? 2 : 3;
+    pop.innerHTML = `<strong>${GameLogic.CHARACTER_LABELS[character]}</strong><br>${CHAR_INFO[character].replace('3 moedas, alvo', cost + ' moedas, alvo')}`;
+    pop.classList.remove('hidden');
+    const r = anchor.getBoundingClientRect();
+    const w = Math.min(240, window.innerWidth - 16);
+    pop.style.width = w + 'px';
+    pop.style.left = Math.max(8, Math.min(r.left + r.width / 2 - w / 2, window.innerWidth - w - 8)) + 'px';
+    const top = r.top - pop.offsetHeight - 8;
+    pop.style.top = (top > 8 ? top : r.bottom + 8) + 'px';
 }
 
 function updateActionsPanel(room) {
@@ -600,6 +638,7 @@ function highlightValidTargets(highlight) {
 
 function executeAction(actionId, targetId) {
     const playerId = RoomManager.getCurrentPlayerId();
+    closeAllModals(); // antes: Firebase notifica sincronamente e o modal seguinte (ex.: perder carta) seria fechado
     RoomManager.mutateGame(gs => {
         if (gs.phase !== 'action' || gs.currentTurn !== playerId) return false;
         runAction(gs, playerId, actionId, targetId);
@@ -681,9 +720,9 @@ function showLoseInfluenceModal() {
 
 function loseCard(character) {
     const me = RoomManager.getCurrentPlayerId();
+    closeAllModals();
     RoomManager.mutateGame(gs => gs.phase === 'lose_influence' && gs.pendingLoss?.playerId === me &&
         gs.players[me].influences.includes(character) && (GameLogic.processLoseInfluence(gs, me, character), true));
-    closeAllModals();
 }
 
 function handleExchangePhase(gameState) {
@@ -749,10 +788,9 @@ function handleConfirmExchange() {
     
     const keptCards = Array.from(selected).map(c => c.dataset.character);
     const playerId = RoomManager.getCurrentPlayerId();
+    closeAllModals(); // antes: Firebase notifica sincronamente e o modal seguinte (ex.: perder carta) seria fechado
     RoomManager.mutateGame(gs => gs.phase === 'exchange' && gs.currentTurn === playerId &&
         (GameLogic.processExchangeComplete(gs, playerId, keptCards), true));
-    
-    closeAllModals();
 }
 
 // ========================================
@@ -852,7 +890,7 @@ function showResponseModal(titleText, html, buttons) {
 function showExamineModal(gameState, phase) {
     const action = gameState.pendingAction;
     const target = gameState.players[action.targetId];
-    const send = fn => () => { RoomManager.mutateGame(gs => fn(gs)); closeAllModals(); };
+    const send = fn => () => { closeAllModals(); RoomManager.mutateGame(gs => fn(gs)); };
     let title, html, buttons;
     if (phase === 'examine_show') {
         title = 'Investigação';
@@ -908,38 +946,52 @@ function showBlockResponseModal(block) {
 // (antes, dois cliques simultâneos ou um clique após o prazo sobrescreviam a jogada do outro)
 function respondChallenge() {
     const me = RoomManager.getCurrentPlayerId();
+    closeAllModals(); // antes: Firebase notifica sincronamente e o modal seguinte (ex.: perder carta) seria fechado
     // Contesta e resolve na mesma transação: não depende de outro cliente para revelar a carta
     RoomManager.mutateGame(gs => !gs.passes?.[me] && GameLogic.processChallenge(gs, me) && (GameLogic.resolveChallenge(gs), true))
         .then(ok => { if (!ok) addLocalLog('Contestação não aceita: a janela já fechou ou outro jogador respondeu antes.'); });
-    closeAllModals();
 }
 
 function respondBlock(character) {
     const me = RoomManager.getCurrentPlayerId();
+    closeAllModals(); // antes: Firebase notifica sincronamente e o modal seguinte (ex.: perder carta) seria fechado
     RoomManager.mutateGame(gs => !gs.passes?.[me] && GameLogic.processBlock(gs, me, character))
         .then(ok => { if (!ok) addLocalLog('Bloqueio não aceito: a janela já fechou ou outro jogador respondeu antes.'); });
-    closeAllModals();
 }
 
 // Permitir: grava só o próprio voto (evita sobrescrever votos simultâneos)
 // Vinculado ao prazo da janela: um "Permitir" atrasado não vale para a janela seguinte
 function respondPass() {
     const me = RoomManager.getCurrentPlayerId(), deadline = roomData?.gameState?.deadline;
+    closeAllModals(); // antes: Firebase notifica sincronamente e o modal seguinte (ex.: perder carta) seria fechado
     RoomManager.mutateGame(gs => {
         if (gs.deadline !== deadline || !GameLogic.getResponders(gs).includes(me)) return false;
         gs.passes = { ...gs.passes, [me]: true };
         return true;
     });
-    closeAllModals();
 }
 
 // A cada segundo: atualiza contagem; o jogador da vez resolve quando todos permitiram ou o prazo expira
+let lossWatch = {};
 function tickResponseTimer() {
     const gs = roomData?.gameState;
     // Rede de segurança: contestação pendente (versão antiga/evento perdido) é resolvida por qualquer cliente
     if (gs?.phase === 'resolve_challenge') {
         RoomManager.mutateGame(cur => cur.phase === 'resolve_challenge' && (GameLogic.resolveChallenge(cur), true));
         return;
+    }
+    // Rede de segurança: perda de carta parada (aparelho travado/desconectado) — após 30s qualquer cliente revela a 1ª carta
+    if (gs?.phase === 'lose_influence' && gs.pendingLoss) {
+        const key = gs.pendingLoss.playerId + '|' + Object.keys(gs.logs || {}).length;
+        if (lossWatch.key !== key) lossWatch = { key, since: Date.now() };
+        else if (Date.now() - lossWatch.since > 30000) {
+            lossWatch.since = Date.now();
+            RoomManager.mutateGame(cur => {
+                const id = cur.pendingLoss?.playerId;
+                if (cur.phase !== 'lose_influence' || id !== gs.pendingLoss.playerId || !cur.players[id].influences.length) return false;
+                GameLogic.processLoseInfluence(cur, id, cur.players[id].influences[0]);
+            });
+        }
     }
     const el = document.getElementById('response-countdown');
     if (!gs || !gs.deadline) return;

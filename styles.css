@@ -1660,3 +1660,19 @@ body {
 ::-webkit-scrollbar-thumb:hover {
     background: var(--accent-gold);
 }
+/* Pop-up de informação do personagem */
+.char-info-pop {
+    position: fixed;
+    z-index: 3000;
+    background: var(--bg-darker);
+    border: 1px solid var(--accent-gold);
+    border-radius: 8px;
+    padding: 0.6rem 0.75rem;
+    font-size: 0.8rem;
+    line-height: 1.4;
+    color: var(--text-primary, #fff);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+    pointer-events: none;
+}
+.hand-card, .character-card { cursor: pointer; }
+

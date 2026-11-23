@@ -226,6 +226,15 @@ t('Bloqueio verdadeiro (Duque) contestado: contestador perde e a vez passa', () 
         assert.strictEqual(s.players.p2.influences.length, 2, 'Duque trocado por outra carta');
     }
 });
+t('Assassinato bloqueado por Condessa verdadeira e contestado: vez passa', () => {
+    const s = mk(['assassin', 'duke'], ['countess', 'captain'], 3, 2);
+    G.processAssassinate(s, 'p1', 'p2'); G.processBlock(s, 'p2', 'countess');
+    assert.ok(G.processChallenge(s, 'p1')); G.resolveChallenge(s);
+    assert.strictEqual(s.pendingLoss.playerId, 'p1');
+    G.processLoseInfluence(s, 'p1', 'duke');
+    assert.strictEqual(s.phase, 'action'); assert.strictEqual(s.currentTurn, 'p2');
+    assert.strictEqual(s.players.p2.influences.length, 2);
+});
 t('Turno pula eliminado', () => {
     const s = mk(['duke'], ['assassin'], 2, 2,
         { p3: { id: 'p3', name: 'C', coins: 2, influences: ['duke'], alive: true, order: 2 } });
